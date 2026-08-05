@@ -1,0 +1,191 @@
+📄 Section 1: Executive Summary Report
+Project Title
+Automated Psychedelic Spoken-Word & Fractal Music Video Engine
+
+Project Overview
+This project is an automated content production engine designed to convert speech and interview clips (e.g., psychedelic, philosophical, or mind-expansion dialogue) into spoken-word musical tracks. It pairs the generated audio with zooming Mandelbrot fractal animations and dynamic AI art overlays, exporting publication-ready .mp4 video tracks.
+
+The system runs at near-zero operational cost by combining local open-source AI models (for transcription, speaker diarization, and voice synthesis) with low-cost APIs (DeepSeek) and manual/automated Suno Pro music workflows.
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           AUTOMATION PIPELINE FLOW                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+  [YouTube URL] ──► 1. yt-dlp (Extract Raw Audio)
+                         │
+                         ▼
+                    2. WhisperX + pyannote.audio (Speaker Diarization: Isolate Guest)
+                         │
+                         ▼
+                    3. DeepSeek API (Polish Script & Format Rhythmic Stanzas)
+                         │
+                         ▼
+                    4. Kokoro-82M TTS (Local Open-Source Voice Synthesis)
+                         │
+                         ▼
+                    5. Suno Pro Track (Goa / Ajja Psytrance Instrumental Layer)
+                         │
+                         ▼
+                    6. FFmpeg Engine (Render Mandelbrot + Subtitles + MP4 Export)
+Core Technical Pillars
+Zero Copyright Strike Architecture: Extracting raw audio clips from YouTube interview channels triggers Content ID matches. The engine bypasses this completely by extracting only the text transcript, processing it through an LLM, and re-synthesizing it with Kokoro-82M TTS. Because the output audio waveform is 100% freshly synthesized, automated systems will not flag it as stolen media.
+
+Music Style Matching (Suno Pro): Tailored specifically for driving, high-energy Goa/Ajja-style psytrance (145 BPM, rolling basslines, squelchy acid leads, and hypnotic pads).
+
+Execution Stack:
+
+Transcription & Diarization: WhisperX + pyannote.audio (local CUDA GPU acceleration).
+
+Script Refinement: DeepSeek API (deepseek-v4-flash) at ~$0.0001 per run.
+
+Voice Generation: Kokoro-82M (100% free, local 82-million parameter TTS model).
+
+Video Rendering: FFmpeg (Mandelbrot fractal zoom, .srt subtitle burning, and audio track mixing).
+
+📄 Section 2: Updated AGE### Step-by-Step Order of Operations
+
+#### 1. Push Files to GitHub
+
+Create a repository on GitHub (e.g., `psychedelic-speech-engine`) and commit the following core files:
+
+* `app.py` (Main Python script)
+* `auto_pipeline.py` (Suno folder watcher)
+* `requirements.txt` (Python dependencies)
+* `AGENTS.md` (Context and instructions for Google Jules)
+* `README.md` (Project documentation)
+* `.gitignore` (To ensure local `.env` and `.mp3` files are never uploaded)
+
+#### 2. Configure GitHub Repository Secrets
+
+Before starting Jules, go to **GitHub Repo Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions** and add:
+
+* `DEEPSEEK_API_KEY`
+* `HF_TOKEN`
+
+#### 3. Connect to Google Jules
+
+1. Go to [jules.google.com](https://jules.google.com) and log in with your Google account.
+2. Click **Connect to GitHub** and authorize access to your `psychedelic-speech-engine` repository.
+3. Select your repository from the drop-down menu.
+4. Send your initial task prompt to Jules (e.g., *"Review AGENTS.md and verify all error handlers and CPU fallbacks in app.py"*), and Jules will generate a plan and issue a Pull Request (PR) for your review.
+# 🌀 Psychedelic Speech-to-Music Video Engine
+
+An automated, high-quality, cost-optimized Python pipeline that converts YouTube speech and interview clips into philosophical, spoken-word music tracks set against audio-reactive Mandelbrot fractal animations.
+
+---
+
+## 💡 Architecture & Tech Stack
+
+- **Audio Extraction:** `yt-dlp` extracts raw WAV audio directly from YouTube links.
+- **Speaker Diarization:** `WhisperX` + `pyannote.audio` transcribes and isolates specific guest speakers (`SPEAKER_01`).
+- **Script Polishing:** `DeepSeek API` (`deepseek-v4-flash`) cleans filler words and formats speech into rhythmic stanzas (~$0.0001/run).
+- **Local Voice Synthesis:** `Kokoro-82M TTS` generates natural, human-like voiceovers locally at zero API cost.
+- **Music Integration:** Optimized for **Ajja / Goa Psytrance** instrumental tracks generated via `Suno Pro`.
+- **Video Rendering:** `FFmpeg` generates dynamic zooming Mandelbrot visuals with burned-in `.srt` subtitles.
+
+---
+
+## 🛠️ Prerequisites
+
+- **Python 3.10+**
+- **FFmpeg** installed and added to system PATH
+- **espeak-ng** installed (required for Kokoro TTS phonemes)
+
+### System Dependencies Installation
+- **Ubuntu/Debian:** `sudo apt-get update && sudo apt-get install -y espeak-ng ffmpeg`
+- **macOS:** `brew install espeak ffmpeg`
+- **Windows:** Install via official `espeak-ng` MSI release installer and FFmpeg builds.
+
+---
+
+## 📦 Setup & Installation
+
+1. **Clone the Repository:**
+   ```bash
+   git clone [https://github.com/YOUR_USERNAME/psychedelic-speech-engine.git](https://github.com/YOUR_USERNAME/psychedelic-speech-engine.git)
+   cd psychedelic-speech-engine
+import os
+import time
+import requests
+import argparse
+import subprocess
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUNO_API_URL = "http://localhost:3000/api/custom_generate"
+
+def generate_suno_track(prompt_tags: str, title: str = "Goa Psytrance Track") -> str:
+    """Sends a request to the local Suno API container and downloads the resulting MP3."""
+    print(" [1/5] Requesting music generation from local Suno Docker API...")
+    
+    payload = {
+        "prompt": "",
+        "tags": prompt_tags,
+        "title": title,
+        "make_instrumental": True,
+        "wait_audio": True  # Blocks until generation is complete
+    }
+    
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(SUNO_API_URL, json=payload, headers=headers, timeout=120)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Suno API returns an array of two generated tracks; pick the first
+        track_info = data[0] if isinstance(data, list) else data
+        audio_url = track_info.get("audio_url")
+        
+        if not audio_url:
+            raise ValueError("Suno API did not return a valid audio_url.")
+            
+        print(f" [2/5] Music ready! Downloading track from {audio_url}...")
+        audio_data = requests.get(audio_url).content
+        
+        local_music_file = f"suno_{int(time.time())}.mp3"
+        with open(local_music_file, "wb") as f:
+            f.write(audio_data)
+            
+        return local_music_file
+        
+    except Exception as e:
+        print(f"❌ Failed to generate audio via local Suno API: {e}")
+        raise
+
+def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str):
+    """Triggers the core app.py execution pipeline."""
+    print("⚡ [3/5] Starting speech extraction, re-voicing, and video rendering...")
+    
+    cmd = [
+        "python", "app.py",
+        "--url", youtube_url,
+        "--music", music_path,
+        "--speaker", speaker,
+        "--output", output
+    ]
+    subprocess.run(cmd, check=True)
+
+def main():
+    parser = argparse.ArgumentParser(description="Fully Automated Psychedelic Video Generator")
+    parser.add_argument("--url", required=True, help="YouTube speech URL")
+    parser.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
+    parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
+    parser.add_argument(
+        "--tags", 
+        default="psytrance, Goa trance, Ajja style, 145 bpm, rolling bassline, acid squelches, hypnotic tribal percussion, continuous groove, instrumental",
+        help="Suno style tags"
+    )
+    
+    args = parser.parse_args()
+    
+    # 1. Generate music automatically via local Suno container
+    music_file = generate_suno_track(args.tags)
+    
+    # 2. Run the main processing and rendering workflow
+    run_pipeline(args.url, music_file, args.speaker, args.output)
+    
+    print(f"\n🎉 Workflow complete! Final video saved to: {args.output}")
+
+if __name__ == "__main__":
+    main()
