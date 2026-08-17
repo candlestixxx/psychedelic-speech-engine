@@ -1,0 +1,15 @@
+# ROADMAP
+
+## Phase 1: Core Engine Automation (Current)
+- Establish the baseline workflow (Extract $\rightarrow$ Transcribe $\rightarrow$ Polish $\rightarrow$ Synthesize $\rightarrow$ Render).
+- Enable batch-processing of multiple music tracks.
+- Native CPU execution fallbacks.
+
+## Phase 2: Visual Enhancements
+- Expand FFmpeg filters to include audio-reactive shaders beyond Mandelbrot.
+- Dynamically detect BPM of Suno-generated tracks and adjust video pulse rates accordingly.
+- Add robust Subtitle stylizations (fonts, colors, karaoke-style active word highlighting).
+
+## Phase 3: GUI and Deployment
+- Create a web-based user interface to configure API keys, video parameters, and view active rendering logs.
+- Containerize the entire engine via Docker for seamless 1-click deployments alongside the Suno API.

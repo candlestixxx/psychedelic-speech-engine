@@ -1,0 +1,6 @@
+# IDEAS FOR FUTURE EXPANSION
+
+- **Dynamic Visuals:** Instead of just a generic Mandelbrot filter via FFmpeg, dynamically pipe the music track into a generative AI art model (like Stable Diffusion / Deforum) or advanced MilkDrop 2 visualizers to create visuals that sync exactly to the kick and snare.
+- **TTS Cloning:** Allow the user to submit an audio sample of the original speaker and use an open-source voice cloning model (like RVC or XTTS) to re-synthesize the polished script in the *original* speaker's voice, rather than a generic Kokoro voice.
+- **Topic Clustering:** Run the WhisperX transcript through DeepSeek to automatically divide a 2-hour interview into 10 distinct thematic topics, isolate each segment, and generate 10 unique music videos in a single run.
+- **Language Porting:** The current implementation is tied heavily to Python due to `whisperx` and `kokoro`. Consider decoupling the video rendering (`FFmpeg`) and API orchestration (`auto_run.py`) into a high-concurrency language like Go or Rust for better CPU utilization across multiple simultaneous rendering pipelines.
