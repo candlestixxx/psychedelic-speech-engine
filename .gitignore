@@ -1,1 +1,9 @@
-__pycache__
+__pycache__/
+.env
+*.wav
+*.mp3
+*.mp4
+*.srt
+downloaded_audio.wav
+synthesized_speech.wav
+isolated_speech.srt

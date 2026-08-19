@@ -1,0 +1,13 @@
+# Pinned to the coherent set that whisperx 3.8.6 officially supports.
+# If you change whisperx, revisit these pins.
+torch==2.8.0
+torchaudio==2.8.0
+torchvision==0.23.0
+whisperx==3.8.6
+pyannote-audio==4.0.7
+kokoro==0.9.4
+soundfile
+numpy
+requests
+python-dotenv
+yt-dlp
