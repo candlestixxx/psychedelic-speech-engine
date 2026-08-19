@@ -71,7 +71,7 @@ def generate_suno_tracks(prompt_tags: str, title: str = "Goa Psytrance Track") -
         raise
 
 
-def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str):
+def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str, start=None, end=None):
     """Triggers the core app.py execution pipeline."""
     print(f"⚡ [3/5] Starting speech extraction, re-voicing, and video rendering for {output}...")
 
@@ -82,6 +82,10 @@ def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str):
         "--speaker", speaker,
         "--output", output,
     ]
+    if start:
+        cmd += ["--start", start]
+    if end:
+        cmd += ["--end", end]
     subprocess.run(cmd, check=True)
 
 
@@ -89,6 +93,8 @@ def main():
     parser = argparse.ArgumentParser(description="Fully Automated Psychedelic Video Generator")
     parser.add_argument("--url", required=True, help="YouTube speech URL")
     parser.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
+    parser.add_argument("--start", default=None, help="Optional: extract only from this timestamp")
+    parser.add_argument("--end", default=None, help="Optional: extract only up to this timestamp")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     parser.add_argument(
         "--tags",
@@ -109,7 +115,7 @@ def main():
             print(f"\n▶️ Rendering variation {idx + 1} to {output_filename} using {music_file}...")
 
             try:
-                run_pipeline(args.url, music_file, args.speaker, output_filename)
+                run_pipeline(args.url, music_file, args.speaker, output_filename, args.start, args.end)
             except Exception as e:
                 print(f"❌ Failed to render variation {idx + 1} ({output_filename}): {e}")
                 print(f"⚠️ Proceeding to the next variation...")

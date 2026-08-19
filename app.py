@@ -24,21 +24,33 @@ def setup_argparse():
     parser.add_argument("--url", required=True, help="YouTube speech URL")
     parser.add_argument("--music", required=True, help="Path to background music file")
     parser.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
+    parser.add_argument("--start", default=None, help="Optional: extract only from this timestamp (e.g. 01:23:45 or 83)")
+    parser.add_argument("--end", default=None, help="Optional: extract only up to this timestamp (e.g. 01:30:00)")
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay (seconds)")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     return parser.parse_args()
 
 
-def download_audio(url):
+def download_audio(url, start=None, end=None):
     output_wav = "downloaded_audio.wav"
-    print(f"[1/5] Downloading audio from {url} to {output_wav}")
+    section = None
+    if start or end:
+        s = start or "0:00"
+        e = end or "inf"
+        section = f"*{s}-{e}"
+    msg = f"[1/5] Downloading audio from {url} to {output_wav}"
+    if section:
+        msg += f" (section {section})"
+    print(msg)
     cmd = [
         "yt-dlp",
         "--extract-audio",
         "--audio-format", "wav",
         "--output", output_wav,
-        url,
     ]
+    if section:
+        cmd += ["--download-sections", section]
+    cmd.append(url)
     subprocess.run(cmd, check=True)
     return output_wav
 
@@ -211,8 +223,8 @@ def main():
     args = setup_argparse()
 
     try:
-        # Step 1: Download audio
-        audio_wav = download_audio(args.url)
+        # Step 1: Download audio (optionally a time range of the video)
+        audio_wav = download_audio(args.url, args.start, args.end)
 
         # Step 2: Diarize and transcribe
         srt_file, raw_text = extract_speech_and_srt(audio_wav, args.speaker)
