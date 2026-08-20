@@ -1,9 +1,27 @@
 # Changelog
 
+## [1.1.0] - 2026-08-19
+### Added
+- `auto_run.py` psytrance batch generator: `--bpm-min/--bpm-max`, `--count`,
+  `--style`, `--others-per-4`, `--start/--end`, `--size`, `--no-stretch`.
+- `styles.py` genre library: 3 psytrance sub-styles + 8 additional genres,
+  with a shared signature tag set for a consistent "own sound".
+- `bpm_tools.py`: numpy/ffmpeg BPM detection + `atempo` time-stretch to target.
+- `render_beat.py`: beat-synced Mandelbrot renderer (kick-triggered zoom pulse).
+- Time-range extraction via yt-dlp `--download-sections`.
+- `requirements.txt` and `.env.example` (were previously missing).
+- Separate Suno API setup (Node app on port 3010, decoupled from other pipelines).
+
+### Fixed
+- DeepSeek model name (`deepseek-chat` instead of the invalid `deepseek-v4-flash`).
+- whisperx 3.8.6 API (`whisperx.diarize.DiarizationPipeline`, `token=` arg).
+- Pascal-GPU compute type (`float32` instead of `float16`).
+- Windows console UTF-8 output.
+- Windows-safe FFmpeg subtitles path.
+- Removed orphaned `speechbrain` package that broke whisperx model loading.
+
 ## [1.0.0] - 2024-05-28
 ### Added
-- Created `app.py` for end-to-end video rendering from YouTube using `yt-dlp`, WhisperX, DeepSeek, Kokoro TTS, and FFmpeg.
-- Implemented CPU fallback logic for PyTorch dependencies to ensure cross-platform compatibility without strict CUDA requirements.
-- Added `auto_run.py` to batch-process generated variations from the local Suno Docker API container.
-- Established documentation standards, ignoring cache files (`__pycache__`).
-- Documented core architecture, roadmap, and project metadata in compliance with session guidelines.
+- `app.py` end-to-end rendering (yt-dlp → WhisperX → DeepSeek → Kokoro → FFmpeg).
+- `auto_run.py` Suno batch orchestration.
+- CPU fallback for PyTorch.

@@ -1,16 +1,23 @@
 # SESSION HANDOFF
 
-## Session Summary
-- Developed the core video processing engine (`app.py`), bridging `yt-dlp`, WhisperX (speaker diarization), DeepSeek (script refinement), Kokoro TTS (speech synthesis), and FFmpeg (video/audio composition).
-- Built an automation script (`auto_run.py`) to trigger the Suno API, process all returned track variations, and batch-render unique videos for each track.
-- Ensured PyTorch components degrade gracefully to CPU mode when CUDA isn't available.
-- Removed `__pycache__` artifacts from source control tracking and updated `.gitignore`.
+## Summary
 
-## Noteworthy Details
-- **Architecture Notes:** The script handles the output from Suno correctly by parsing an array of tracks (or a single dictionary, standardizing it to an array) and skipping failed video renders so the batch queue continues flawlessly.
-- **Dependencies:** `torch`, `whisperx`, `requests`, `python-dotenv`, and `kokoro` form the core environment.
-- **Git Context:** Added standard version governance files (`VERSION.md`, `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`).
+- Built the psytrance batch generator (`auto_run.py` + `styles.py` +
+  `bpm_tools.py` + `render_beat.py`).
+- Stood up a separate Suno API (Node app on port 3010) decoupled from other
+  pipelines (e.g. Hymnmania).
+- Verified BPM detection, time-stretch, beat-synced rendering, and CUDA paths.
+- Merged all fixes into `main`.
 
-## Next Steps for Successive Model
-- Proceed with implementing Phase 2 structural goals from the `ROADMAP.md`.
-- Monitor DeepSeek API rate limits and add explicit request retries if necessary.
+## Next steps
+
+1. Paste the Suno cookie into `suno-api/.env` (`SUNO_COOKIE=`) to enable real
+   music generation.
+2. Run `auto_run.py --url "..." --count 8` for a full batch.
+3. Watch for Suno hCaptcha — add `TWOCAPTCHA_KEY` if generation fails.
+
+## Key facts
+
+- Suno API runs on port **3010** (`npx next dev -p 3010` in `../suno-api`).
+- Project venv at `.venv` (Python 3.11), torch 2.8.0+cu126 (GTX 1080 Ti).
+- `HF_TOKEN` + `DEEPSEEK_API_KEY` are in the project `.env` (gitignored).
