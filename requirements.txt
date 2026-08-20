@@ -8,6 +8,7 @@ pyannote-audio==4.0.7
 kokoro==0.9.4
 soundfile
 numpy
+scipy
 requests
 python-dotenv
 yt-dlp

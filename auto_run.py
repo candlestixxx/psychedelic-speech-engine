@@ -1,7 +1,9 @@
+import argparse
 import os
+import random
 import sys
+import time
 
-# Force UTF-8 output (Windows console safety).
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         try:
@@ -9,123 +11,173 @@ for _stream in (sys.stdout, sys.stderr):
         except Exception:
             pass
 
-import time
 import requests
-import argparse
-import subprocess
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configurable: lets you point at a different Suno API docker/port without editing code.
-SUNO_API_URL = os.environ.get("SUNO_API_URL", "http://localhost:3000/api/custom_generate")
-SUNO_TIMEOUT = int(os.environ.get("SUNO_TIMEOUT", "300"))
+import app as engine
+import bpm_tools
+import styles
+from render_beat import render_beat_video
+
+SUNO_API_URL = os.environ.get("SUNO_API_URL", "http://localhost:3010/api/custom_generate")
+SUNO_TIMEOUT = int(os.environ.get("SUNO_TIMEOUT", "600"))
 
 
-def generate_suno_tracks(prompt_tags: str, title: str = "Goa Psytrance Track") -> list:
-    """Generates music via the local Suno API and returns ALL generated track files."""
-    print(f" [1/5] Requesting music generation from Suno API ({SUNO_API_URL})...")
+def build_track_spec(kind, genre_key=None, style_key=None, bpm_min=144.0, bpm_max=170.0):
+    """Build one track spec: {kind, genre, bpm (target), tags, title}."""
+    if kind == "psytrance":
+        if not style_key or style_key == "random":
+            style_key = random.choice(list(styles.PSYTRANCE_STYLES.keys()))
+        st = styles.PSYTRANCE_STYLES[style_key]
+        lo = max(bpm_min, st["bpm"][0])
+        hi = min(bpm_max, st["bpm"][1])
+        if hi < lo:
+            hi = lo
+        bpm = random.uniform(lo, hi)
+        tags = f"{styles.SIGNATURE_TAGS}, {st['tags']}, {int(round(bpm))} BPM"
+        title = f"psy_{style_key}_{int(round(bpm))}bpm"
+        return {"kind": "psytrance", "genre": style_key, "bpm": bpm, "tags": tags, "title": title}
 
+    g = styles.OTHER_GENRES[genre_key]
+    bpm = random.uniform(g["bpm"][0], g["bpm"][1])
+    tags = f"{styles.SIGNATURE_TAGS}, {g['tags']}, {int(round(bpm))} BPM"
+    title = f"{genre_key}_{int(round(bpm))}bpm"
+    return {"kind": "other", "genre": genre_key, "bpm": bpm, "tags": tags, "title": title}
+
+
+def build_track_plan(count, style, bpm_min, bpm_max, others_per_4):
+    """4 psytrance -> N other-genre tracks, repeating. Others are distinct per cycle."""
+    plan = []
+    other_keys = list(styles.OTHER_GENRES.keys())
+    for i in range(count):
+        plan.append(build_track_spec("psytrance", style_key=style,
+                                     bpm_min=bpm_min, bpm_max=bpm_max))
+        if (i + 1) % 4 == 0:
+            k = min(others_per_4, len(other_keys))
+            for g in random.sample(other_keys, k):
+                plan.append(build_track_spec("other", genre_key=g))
+    return plan
+
+
+def generate_suno_track(spec):
+    """Generate one instrumental track via the Suno API and download its mp3."""
     payload = {
         "prompt": "",
-        "tags": prompt_tags,
-        "title": title,
+        "tags": spec["tags"],
+        "title": spec["title"],
         "make_instrumental": True,
         "wait_audio": True,
+        "negative_tags": styles.NEGATIVE_TAGS,
     }
-
     try:
-        response = requests.post(
-            SUNO_API_URL,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=SUNO_TIMEOUT,
+        resp = requests.post(SUNO_API_URL, json=payload,
+                             headers={"Content-Type": "application/json"},
+                             timeout=SUNO_TIMEOUT)
+    except requests.ConnectionError:
+        raise RuntimeError(
+            f"Cannot reach Suno API at {SUNO_API_URL}. Is it running? "
+            "(Start suno-api with a valid SUNO_COOKIE, then set SUNO_API_URL in .env.)"
         )
-        response.raise_for_status()
-        data = response.json()
-
-        if not isinstance(data, list):
-            data = [data]
-
-        downloaded_files = []
-        for idx, track in enumerate(data):
-            audio_url = track.get("audio_url")
-            if audio_url:
-                filename = f"suno_var_{idx + 1}_{int(time.time())}.mp3"
-                print(f" [2/5] Variation {idx + 1} ready! Downloading track from {audio_url}...")
-                with open(filename, "wb") as f:
-                    f.write(requests.get(audio_url, timeout=SUNO_TIMEOUT).content)
-                downloaded_files.append(filename)
-
-        if not downloaded_files:
-            raise ValueError("Suno API did not return any valid audio_urls.")
-
-        return downloaded_files
-
-    except requests.ConnectionError as e:
-        print(f"❌ Could not reach the Suno API at {SUNO_API_URL}. "
-              f"Is the Docker container running? (error: {e})")
-        raise
-    except Exception as e:
-        print(f"❌ Failed to generate audio via Suno API: {e}")
-        raise
+    resp.raise_for_status()
+    data = resp.json()
+    if isinstance(data, dict) and "error" in data:
+        raise RuntimeError(f"Suno API error: {data['error']}")
+    if not isinstance(data, list):
+        data = [data]
+    for track in data:
+        url = track.get("audio_url")
+        if url:
+            filename = f"suno_{spec['title']}_{int(time.time())}.mp3"
+            with open(filename, "wb") as f:
+                f.write(requests.get(url, timeout=SUNO_TIMEOUT).content)
+            return filename
+    raise RuntimeError("Suno returned no audio_url")
 
 
-def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str, start=None, end=None):
-    """Triggers the core app.py execution pipeline."""
-    print(f"⚡ [3/5] Starting speech extraction, re-voicing, and video rendering for {output}...")
-
-    cmd = [
-        sys.executable, "app.py",
-        "--url", youtube_url,
-        "--music", music_path,
-        "--speaker", speaker,
-        "--output", output,
-    ]
-    if start:
-        cmd += ["--start", start]
-    if end:
-        cmd += ["--end", end]
-    subprocess.run(cmd, check=True)
+def extract_speech_once(url, speaker, start, end):
+    """Run the expensive speech pipeline exactly once; reused for all tracks."""
+    print("\n=== [SPEECH] Extracting voice (once, reused for all tracks) ===")
+    audio_wav = engine.download_audio(url, start, end)
+    srt_file, raw_text = engine.extract_speech_and_srt(audio_wav, speaker)
+    polished = engine.polish_script(raw_text)
+    speech_wav = engine.synthesize_audio(polished)
+    return speech_wav, srt_file
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fully Automated Psychedelic Video Generator")
-    parser.add_argument("--url", required=True, help="YouTube speech URL")
-    parser.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
-    parser.add_argument("--start", default=None, help="Optional: extract only from this timestamp")
-    parser.add_argument("--end", default=None, help="Optional: extract only up to this timestamp")
-    parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
-    parser.add_argument(
-        "--tags",
-        default="psytrance, Goa trance, Ajja style, 145 bpm, rolling bassline, acid squelches, "
-                "hypnotic tribal percussion, continuous groove, instrumental",
-        help="Suno style tags",
-    )
+    p = argparse.ArgumentParser(description="Psychedelic Speech Engine - batch music video generator")
+    p.add_argument("--url", required=True, help="YouTube speech URL")
+    p.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
+    p.add_argument("--output", default="final_master", help="Output filename prefix (no extension)")
+    p.add_argument("--count", type=int, default=4, help="Number of PSYTRANCE tracks")
+    p.add_argument("--style", choices=["fullon", "darkpsy", "hitech", "random"], default="random",
+                   help="Psytrance sub-style (random picks per track)")
+    p.add_argument("--bpm-min", type=float, default=144.0, help="Psytrance BPM lower bound")
+    p.add_argument("--bpm-max", type=float, default=170.0, help="Psytrance BPM upper bound")
+    p.add_argument("--others-per-4", type=int, default=3,
+                   help="Other-genre tracks generated per every 4 psytrance tracks")
+    p.add_argument("--start", default=None, help="Extract YouTube audio from this timestamp")
+    p.add_argument("--end", default=None, help="Extract YouTube audio up to this timestamp")
+    p.add_argument("--delay", type=float, default=0.0, help="Delay before speech starts (seconds)")
+    p.add_argument("--no-stretch", action="store_true", help="Skip BPM time-stretch normalization")
+    p.add_argument("--size", default="1920x1080", help="Video size (e.g. 1280x720 for faster renders)")
+    args = p.parse_args()
 
-    args = parser.parse_args()
+    if args.bpm_max < args.bpm_min:
+        args.bpm_min, args.bpm_max = args.bpm_max, args.bpm_min
+
+    plan = build_track_plan(args.count, args.style, args.bpm_min, args.bpm_max, args.others_per_4)
+
+    print("\n=== Track plan ===")
+    for i, spec in enumerate(plan, 1):
+        print(f"  {i:2d}. [{spec['kind']:9s}] {spec['genre']:22s} target {spec['bpm']:.0f} BPM")
+    print(f"Total tracks: {len(plan)}")
+
+    print("\n=== [MUSIC] Generating tracks via Suno ===")
+    tracks = []
+    for i, spec in enumerate(plan, 1):
+        print(f"[{i}/{len(plan)}] {spec['title']} ...")
+        try:
+            fn = generate_suno_track(spec)
+            tracks.append((spec, fn))
+            print(f"        -> {fn}")
+        except Exception as e:
+            print(f"        FAILED: {e}  (continuing)")
+        time.sleep(1)
+
+    if not tracks:
+        print("No tracks were generated. Aborting.")
+        sys.exit(1)
 
     try:
-        # 1. Generate music and get all variations
-        music_files = generate_suno_tracks(args.tags)
-
-        # 2. Process each variation into its own video
-        for idx, music_file in enumerate(music_files):
-            output_filename = f"variation_{idx + 1}_{args.output}"
-            print(f"\n▶️ Rendering variation {idx + 1} to {output_filename} using {music_file}...")
-
-            try:
-                run_pipeline(args.url, music_file, args.speaker, output_filename, args.start, args.end)
-            except Exception as e:
-                print(f"❌ Failed to render variation {idx + 1} ({output_filename}): {e}")
-                print(f"⚠️ Proceeding to the next variation...")
-                continue
-
-        print(f"\n🎉 Batch workflow complete!")
-
+        speech_wav, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end)
     except Exception as e:
-        print(f"Error during execution: {e}", file=sys.stderr)
+        print(f"Speech extraction failed: {e}")
         sys.exit(1)
+
+    print("\n=== [RENDER] Normalizing BPM + rendering beat-synced videos ===")
+    for idx, (spec, music_file) in enumerate(tracks, 1):
+        out_name = f"{args.output}_{idx:02d}_{spec['genre']}_{int(round(spec['bpm']))}bpm.mp4"
+        try:
+            norm_file = music_file
+            bpm = spec["bpm"]
+            if args.no_stretch:
+                bpm = bpm_tools.detect_bpm(music_file, hint=spec["bpm"])
+                print(f"[{idx}/{len(tracks)}] {spec['title']}: using detected {bpm:.1f} BPM (no stretch)")
+            else:
+                norm_file = f"norm_{spec['title']}.mp3"
+                detected, _stretched = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
+                print(f"[{idx}/{len(tracks)}] {spec['title']}: detected {detected:.1f} -> stretched to {bpm:.0f} BPM")
+            render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
+                              delay=args.delay, size=args.size)
+            print(f"        -> {out_name}")
+        except Exception as e:
+            print(f"        RENDER FAILED: {e}")
+
+    print("\n=== Done ===")
+    print(f"Rendered {len(tracks)} video(s). Files are named: {args.output}_*")
 
 
 if __name__ == "__main__":
