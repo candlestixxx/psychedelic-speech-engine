@@ -5,7 +5,11 @@ import requests
 import torch
 import json
 import time
+import warnings
 from dotenv import load_dotenv
+
+# Suppress PyTorch/NumPy and quantization warnings from whisperx
+warnings.filterwarnings("ignore")
 
 load_dotenv()
 
@@ -16,6 +20,7 @@ def setup_argparse():
     parser.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
+    parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
     return parser.parse_args()
 
 def download_audio(url):
@@ -99,12 +104,19 @@ def polish_script(raw_text):
         ]
     }
 
-    response = requests.post(url, json=payload, headers=headers)
-    response.raise_for_status()
-    data = response.json()
-
-    polished_text = data["choices"][0]["message"]["content"]
-    return polished_text
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+        except requests.exceptions.RequestException as e:
+            print(f"DeepSeek API error on attempt {attempt + 1}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                raise ValueError("DeepSeek API failed after maximum retries.")
 
 def synthesize_audio(text):
     print("Synthesizing audio with Kokoro...")
@@ -130,13 +142,13 @@ def synthesize_audio(text):
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
 
-def render_video(speech_file, music_file, srt_file, output_file, delay):
+def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter):
     print(f"Rendering final video to {output_file}...")
 
     # Command to generate mandelbrot, add delayed speech and music, and burn subtitles
     cmd = [
         "ffmpeg", "-y",
-        "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=30",
+        "-f", "lavfi", "-i", video_filter,
         "-i", speech_file,
         "-i", music_file,
         "-filter_complex",
@@ -170,7 +182,7 @@ def main():
         synthesized_speech = synthesize_audio(polished_text)
 
         # Step 5: Render Video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter)
 
     except Exception as e:
         print(f"Error during execution: {e}")

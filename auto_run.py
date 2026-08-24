@@ -50,7 +50,7 @@ def generate_suno_tracks(prompt_tags: str, title: str = "Goa Psytrance Track") -
         print(f"❌ Failed to generate audio via local Suno API: {e}")
         raise
 
-def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str):
+def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str, video_filter: str):
     """Triggers the core app.py execution pipeline."""
     print(f"⚡ [3/5] Starting speech extraction, re-voicing, and video rendering for {output}...")
 
@@ -59,7 +59,8 @@ def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str):
         "--url", youtube_url,
         "--music", music_path,
         "--speaker", speaker,
-        "--output", output
+        "--output", output,
+        "--video-filter", video_filter
     ]
     subprocess.run(cmd, check=True)
 
@@ -73,6 +74,7 @@ def main():
         default="psytrance, Goa trance, Ajja style, 145 bpm, rolling bassline, acid squelches, hypnotic tribal percussion, continuous groove, instrumental",
         help="Suno style tags"
     )
+    parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
 
     args = parser.parse_args()
 
@@ -86,7 +88,7 @@ def main():
             print(f"\n▶️ Rendering variation {idx + 1} to {output_filename} using {music_file}...")
 
             try:
-                run_pipeline(args.url, music_file, args.speaker, output_filename)
+                run_pipeline(args.url, music_file, args.speaker, output_filename, args.video_filter)
             except Exception as e:
                 print(f"❌ Failed to render variation {idx + 1} ({output_filename}): {e}")
                 print(f"⚠️ Proceeding to the next variation...")
