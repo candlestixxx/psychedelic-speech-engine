@@ -14,7 +14,13 @@ for _stream in (sys.stdout, sys.stderr):
 
 import requests
 import torch
+import json
+import time
+import warnings
 from dotenv import load_dotenv
+
+# Suppress PyTorch/NumPy and quantization warnings from whisperx
+warnings.filterwarnings("ignore")
 
 load_dotenv()
 
@@ -28,6 +34,7 @@ def setup_argparse():
     parser.add_argument("--end", default=None, help="Optional: extract only up to this timestamp (e.g. 01:30:00)")
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay (seconds)")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
+    parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
     return parser.parse_args()
 
 
@@ -150,12 +157,19 @@ def polish_script(raw_text):
         "temperature": 0.7,
     }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=120)
-    response.raise_for_status()
-    data = response.json()
-
-    polished_text = data["choices"][0]["message"]["content"]
-    return polished_text
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+        except requests.exceptions.RequestException as e:
+            print(f"DeepSeek API error on attempt {attempt + 1}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                raise ValueError("DeepSeek API failed after maximum retries.")
 
 
 def synthesize_audio(text):
@@ -183,7 +197,6 @@ def synthesize_audio(text):
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
 
-
 def _ffmpeg_subtitle_path(path):
     """Escape a path for use inside ffmpeg's subtitles/ass filter (Windows-safe)."""
     p = os.path.abspath(path).replace("\\", "/")
@@ -191,7 +204,7 @@ def _ffmpeg_subtitle_path(path):
     return p
 
 
-def render_video(speech_file, music_file, srt_file, output_file, delay):
+def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter):
     print(f"[5/5] Rendering final video to {output_file}...")
 
     delay_ms = int(delay * 1000)
@@ -200,7 +213,7 @@ def render_video(speech_file, music_file, srt_file, output_file, delay):
     # mandelbrot is an infinite source; -shortest ends output when the (finite) audio ends.
     cmd = [
         "ffmpeg", "-y",
-        "-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=30",
+        "-f", "lavfi", "-i", video_filter,
         "-i", speech_file,
         "-i", music_file,
         "-filter_complex",
@@ -236,7 +249,7 @@ def main():
         synthesized_speech = synthesize_audio(polished_text)
 
         # Step 5: Render video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter)
 
         print(f"Done! Final video: {args.output}")
 
