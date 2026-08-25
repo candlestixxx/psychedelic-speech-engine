@@ -4,6 +4,7 @@
 - Establish the baseline workflow (Extract $\rightarrow$ Transcribe $\rightarrow$ Polish $\rightarrow$ Synthesize $\rightarrow$ Render).
 - Enable batch-processing of multiple music tracks.
 - Native CPU execution fallbacks.
+- Fully isolate execution runtimes to prevent file collisions.
 
 ## Phase 2: Visual Enhancements
 - Expand FFmpeg filters to include audio-reactive shaders beyond Mandelbrot.
