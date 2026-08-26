@@ -11,6 +11,9 @@
 - Time-range extraction via yt-dlp `--download-sections`.
 - `requirements.txt` and `.env.example` (were previously missing).
 - Separate Suno API setup (Node app on port 3010, decoupled from other pipelines).
+- **Workspace Isolation**: `app.py`/`auto_run.py` execute inside timestamped
+  `workspace_run_*/` directories, preventing file collisions during batch runs.
+- **Configurable TTS voice**: `--voice` argument (Kokoro voice ID, default `af_heart`).
 
 ### Fixed
 - DeepSeek model name (`deepseek-chat` instead of the invalid `deepseek-v4-flash`).

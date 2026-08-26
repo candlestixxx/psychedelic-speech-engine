@@ -96,13 +96,13 @@ def generate_suno_track(spec):
     raise RuntimeError("Suno returned no audio_url")
 
 
-def extract_speech_once(url, speaker, start, end):
+def extract_speech_once(url, speaker, start, end, workspace_dir, voice):
     """Run the expensive speech pipeline exactly once; reused for all tracks."""
     print("\n=== [SPEECH] Extracting voice (once, reused for all tracks) ===")
-    audio_wav = engine.download_audio(url, start, end)
-    srt_file, raw_text = engine.extract_speech_and_srt(audio_wav, speaker)
+    audio_wav = engine.download_audio(url, workspace_dir, start, end)
+    srt_file, raw_text = engine.extract_speech_and_srt(audio_wav, speaker, workspace_dir)
     polished = engine.polish_script(raw_text)
-    speech_wav = engine.synthesize_audio(polished)
+    speech_wav = engine.synthesize_audio(polished, workspace_dir, voice)
     return speech_wav, srt_file
 
 
@@ -123,7 +123,13 @@ def main():
     p.add_argument("--delay", type=float, default=0.0, help="Delay before speech starts (seconds)")
     p.add_argument("--no-stretch", action="store_true", help="Skip BPM time-stretch normalization")
     p.add_argument("--size", default="1920x1080", help="Video size (e.g. 1280x720 for faster renders)")
+    p.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
     args = p.parse_args()
+
+    # Create isolated workspace directory for this execution
+    workspace_dir = f"workspace_run_{int(time.time())}"
+    os.makedirs(workspace_dir, exist_ok=True)
+    print(f"📁 Created isolated workspace: {workspace_dir}")
 
     if args.bpm_max < args.bpm_min:
         args.bpm_min, args.bpm_max = args.bpm_max, args.bpm_min
@@ -152,7 +158,7 @@ def main():
         sys.exit(1)
 
     try:
-        speech_wav, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end)
+        speech_wav, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice)
     except Exception as e:
         print(f"Speech extraction failed: {e}")
         sys.exit(1)

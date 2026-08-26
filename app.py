@@ -35,11 +35,12 @@ def setup_argparse():
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay (seconds)")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
+    parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
     return parser.parse_args()
 
 
-def download_audio(url, start=None, end=None):
-    output_wav = "downloaded_audio.wav"
+def download_audio(url, workspace_dir, start=None, end=None):
+    output_wav = os.path.join(workspace_dir, "downloaded_audio.wav")
     section = None
     if start or end:
         s = start or "0:00"
@@ -69,7 +70,7 @@ def format_timestamp(seconds):
     return f"{hours:02d}:{minutes:02d}:{secs:06.3f}".replace(".", ",")
 
 
-def extract_speech_and_srt(audio_file, target_speaker):
+def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
     print("[2/5] Transcribing and diarizing (this can take a while)...")
     import whisperx
     from whisperx.diarize import DiarizationPipeline
@@ -118,7 +119,7 @@ def extract_speech_and_srt(audio_file, target_speaker):
             raw_text += text + " "
             idx += 1
 
-    srt_filename = "isolated_speech.srt"
+    srt_filename = os.path.join(workspace_dir, "isolated_speech.srt")
     with open(srt_filename, "w", encoding="utf-8") as f:
         f.write(srt_content)
 
@@ -172,8 +173,8 @@ def polish_script(raw_text):
                 raise ValueError("DeepSeek API failed after maximum retries.")
 
 
-def synthesize_audio(text):
-    print("[4/5] Synthesizing audio with Kokoro TTS...")
+def synthesize_audio(text, workspace_dir, voice_id):
+    print(f"[4/5] Synthesizing audio with Kokoro TTS (Voice: {voice_id})...")
     from kokoro import KPipeline
     import numpy as np
     import soundfile as sf
@@ -181,7 +182,7 @@ def synthesize_audio(text):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     pipeline = KPipeline(lang_code='a', device=device)
-    generator = pipeline(text, voice='af_heart', speed=1.0, split_pattern=r'\n+')
+    generator = pipeline(text, voice=voice_id, speed=1.0, split_pattern=r'\n+')
 
     audio_chunks = []
     for i, (gs, ps, audio) in enumerate(generator):
@@ -193,7 +194,7 @@ def synthesize_audio(text):
 
     final_audio = np.concatenate([a.cpu().numpy() if hasattr(a, "cpu") else np.asarray(a)
                                   for a in audio_chunks])
-    output_speech_wav = "synthesized_speech.wav"
+    output_speech_wav = os.path.join(workspace_dir, "synthesized_speech.wav")
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
 
@@ -235,18 +236,23 @@ def render_video(speech_file, music_file, srt_file, output_file, delay, video_fi
 def main():
     args = setup_argparse()
 
+    # Create isolated workspace directory for this execution
+    workspace_dir = f"workspace_run_{int(time.time())}"
+    os.makedirs(workspace_dir, exist_ok=True)
+    print(f"📁 Created isolated workspace: {workspace_dir}")
+
     try:
         # Step 1: Download audio (optionally a time range of the video)
-        audio_wav = download_audio(args.url, args.start, args.end)
+        audio_wav = download_audio(args.url, workspace_dir, args.start, args.end)
 
         # Step 2: Diarize and transcribe
-        srt_file, raw_text = extract_speech_and_srt(audio_wav, args.speaker)
+        srt_file, raw_text = extract_speech_and_srt(audio_wav, args.speaker, workspace_dir)
 
         # Step 3: Polish script via DeepSeek
         polished_text = polish_script(raw_text)
 
         # Step 4: Synthesize TTS
-        synthesized_speech = synthesize_audio(polished_text)
+        synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
         # Step 5: Render video
         render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter)

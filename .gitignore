@@ -7,3 +7,4 @@ __pycache__/
 downloaded_audio.wav
 synthesized_speech.wav
 isolated_speech.srt
+workspace_run_*/
