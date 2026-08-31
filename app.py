@@ -22,6 +22,8 @@ def setup_argparse():
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
     parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
+    parser.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
+    parser.add_argument("--subtitle-style", default="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", help="FFmpeg force_style subtitle config")
     return parser.parse_args()
 
 def download_audio(url, workspace_dir):
@@ -83,8 +85,8 @@ def format_timestamp(seconds):
     secs = seconds % 60
     return f"{hours:02d}:{minutes:02d}:{secs:06.3f}".replace(".", ",")
 
-def polish_script(raw_text):
-    print("Polishing script with DeepSeek...")
+def polish_script(raw_text, prompt_style):
+    print(f"Polishing script with DeepSeek (Style: {prompt_style})...")
     deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
     if not deepseek_key:
         raise ValueError("DEEPSEEK_API_KEY environment variable is missing.")
@@ -95,7 +97,7 @@ def polish_script(raw_text):
         "Content-Type": "application/json"
     }
 
-    prompt = f"Clean the following transcript, remove filler words, and format the speech into rhythmic spoken-word stanzas. Output ONLY the polished text:\n\n{raw_text}"
+    prompt = f"Clean the following transcript, remove filler words, and format the speech into {prompt_style}. Output ONLY the polished text:\n\n{raw_text}"
 
     payload = {
         "model": "deepseek-v4-flash",
@@ -143,7 +145,7 @@ def synthesize_audio(text, workspace_dir, voice_id):
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
 
-def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter):
+def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, subtitle_style):
     print(f"Rendering final video to {output_file}...")
 
     # Command to generate mandelbrot, add delayed speech and music, and burn subtitles
@@ -153,7 +155,7 @@ def render_video(speech_file, music_file, srt_file, output_file, delay, video_fi
         "-i", speech_file,
         "-i", music_file,
         "-filter_complex",
-        f"[1:a]adelay={int(delay*1000)}|{int(delay*1000)}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; [0:v]subtitles={srt_file}[v]",
+        f"[1:a]adelay={int(delay*1000)}|{int(delay*1000)}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; [0:v]subtitles={srt_file}:force_style='{subtitle_style}'[v]",
         "-map", "[v]",
         "-map", "[a]",
         "-c:v", "libx264",
@@ -182,13 +184,13 @@ def main():
         srt_file, raw_text = extract_speech_and_srt(audio_wav, args.speaker, workspace_dir)
 
         # Step 3: Polish Script via DeepSeek
-        polished_text = polish_script(raw_text)
+        polished_text = polish_script(raw_text, args.prompt_style)
 
         # Step 4: Synthesize TTS
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
         # Step 5: Render Video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.subtitle_style)
 
     except Exception as e:
         print(f"Error during execution: {e}")

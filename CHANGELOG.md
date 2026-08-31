@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.0] - 2024-05-28
+### Added
+- Implemented **Dynamic Prompt Styles**: Added `--prompt-style` parameter to natively instruct the DeepSeek LLM to generate thematic stanzas (e.g., 'Alan Watts philosophical' or 'Aggressive Cyberpunk').
+- Implemented **Psychedelic Subtitles**: Added `--subtitle-style` parameter to override the default FFmpeg `force_style` rendering filter, allowing dynamic font, size, and color adjustments.
+
 ## [1.1.0] - 2024-05-28
 ### Added
 - Implemented **Workspace Isolation**: `app.py` now executes entirely within isolated `workspace_run_<timestamp>/` directories. This prevents concurrent batch-processing runs from overwriting intermediate files (e.g., `downloaded_audio.wav`, `.srt` files).

@@ -50,7 +50,7 @@ def generate_suno_tracks(prompt_tags: str, title: str = "Goa Psytrance Track") -
         print(f"❌ Failed to generate audio via local Suno API: {e}")
         raise
 
-def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str, video_filter: str, voice: str):
+def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str, video_filter: str, voice: str, prompt_style: str, subtitle_style: str):
     """Triggers the core app.py execution pipeline."""
     print(f"⚡ [3/5] Starting speech extraction, re-voicing, and video rendering for {output}...")
 
@@ -61,7 +61,9 @@ def run_pipeline(youtube_url: str, music_path: str, speaker: str, output: str, v
         "--speaker", speaker,
         "--output", output,
         "--video-filter", video_filter,
-        "--voice", voice
+        "--voice", voice,
+        "--prompt-style", prompt_style,
+        "--subtitle-style", subtitle_style
     ]
     subprocess.run(cmd, check=True)
 
@@ -77,6 +79,8 @@ def main():
     )
     parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
     parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
+    parser.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
+    parser.add_argument("--subtitle-style", default="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", help="FFmpeg force_style subtitle config")
 
     args = parser.parse_args()
 
@@ -90,7 +94,7 @@ def main():
             print(f"\n▶️ Rendering variation {idx + 1} to {output_filename} using {music_file}...")
 
             try:
-                run_pipeline(args.url, music_file, args.speaker, output_filename, args.video_filter, args.voice)
+                run_pipeline(args.url, music_file, args.speaker, output_filename, args.video_filter, args.voice, args.prompt_style, args.subtitle_style)
             except Exception as e:
                 print(f"❌ Failed to render variation {idx + 1} ({output_filename}): {e}")
                 print(f"⚠️ Proceeding to the next variation...")
