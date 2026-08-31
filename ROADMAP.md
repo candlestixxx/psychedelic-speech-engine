@@ -9,7 +9,6 @@
 ## Phase 2: Visual Enhancements
 - Expand FFmpeg filters to include audio-reactive shaders beyond Mandelbrot.
 - Dynamically detect BPM of Suno-generated tracks and adjust video pulse rates accordingly.
-- Add robust Subtitle stylizations (fonts, colors, karaoke-style active word highlighting).
 
 ## Phase 3: GUI and Deployment
 - Create a web-based user interface to configure API keys, video parameters, and view active rendering logs.

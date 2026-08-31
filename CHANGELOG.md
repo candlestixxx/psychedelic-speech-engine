@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0] - 2026-08-31
+### Added
+- **Dynamic Prompt Styles**: `--prompt-style` instructs the DeepSeek LLM on the
+  narrative flavor of the output stanzas (e.g. 'Alan Watts philosophical').
+- **Psychedelic Subtitles**: `--subtitle-style` overrides the FFmpeg `force_style`
+  rendering filter (font, size, color).
+
 ## [1.1.0] - 2026-08-19
 ### Added
 - `auto_run.py` psytrance batch generator: `--bpm-min/--bpm-max`, `--count`,

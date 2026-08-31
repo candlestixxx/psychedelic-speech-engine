@@ -36,6 +36,8 @@ def setup_argparse():
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
     parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
+    parser.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
+    parser.add_argument("--subtitle-style", default="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", help="FFmpeg force_style subtitle config")
     return parser.parse_args()
 
 
@@ -129,8 +131,8 @@ def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
     return srt_filename, raw_text
 
 
-def polish_script(raw_text):
-    print("[3/5] Polishing script with DeepSeek...")
+def polish_script(raw_text, prompt_style):
+    print(f"[3/5] Polishing script with DeepSeek (Style: {prompt_style})...")
     deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
     if not deepseek_key:
         raise ValueError("DEEPSEEK_API_KEY environment variable is missing.")
@@ -145,7 +147,7 @@ def polish_script(raw_text):
 
     prompt = (
         "Clean the following transcript, remove filler words, and format the speech "
-        "into rhythmic spoken-word stanzas. Output ONLY the polished text:\n\n"
+        f"into {prompt_style}. Output ONLY the polished text:\n\n"
         f"{raw_text}"
     )
 
@@ -205,7 +207,7 @@ def _ffmpeg_subtitle_path(path):
     return p
 
 
-def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter):
+def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, subtitle_style):
     print(f"[5/5] Rendering final video to {output_file}...")
 
     delay_ms = int(delay * 1000)
@@ -219,7 +221,7 @@ def render_video(speech_file, music_file, srt_file, output_file, delay, video_fi
         "-i", music_file,
         "-filter_complex",
         f"[1:a]adelay={delay_ms}:all=1[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; "
-        f"[0:v]subtitles='{subtitles}'[v]",
+        f"[0:v]subtitles='{subtitles}':force_style='{subtitle_style}'[v]",
         "-map", "[v]",
         "-map", "[a]",
         "-c:v", "libx264",
@@ -249,13 +251,13 @@ def main():
         srt_file, raw_text = extract_speech_and_srt(audio_wav, args.speaker, workspace_dir)
 
         # Step 3: Polish script via DeepSeek
-        polished_text = polish_script(raw_text)
+        polished_text = polish_script(raw_text, args.prompt_style)
 
         # Step 4: Synthesize TTS
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
         # Step 5: Render video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.subtitle_style)
 
         print(f"Done! Final video: {args.output}")
 
