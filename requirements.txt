@@ -16,3 +16,8 @@ yt-dlp
 # Speaker silhouette (AI background removal from the video thumbnail)
 rembg
 Pillow
+
+# YouTube upload (Data API v3 + OAuth2)
+google-api-python-client
+google-auth
+google-auth-oauthlib

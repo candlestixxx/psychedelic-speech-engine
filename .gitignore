@@ -21,3 +21,6 @@ assets/
 
 # Python virtualenv
 .venv/
+
+# YouTube OAuth refresh token (password-like)
+youtube_token.json
