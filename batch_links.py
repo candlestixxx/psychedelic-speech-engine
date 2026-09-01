@@ -133,7 +133,7 @@ def main():
     p.add_argument("--size", default="1920x1080")
     p.add_argument("--voice", default="af_heart")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas")
-    p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido"], default="default")
+    p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default")
     args = p.parse_args()
 
     os.makedirs(args.output, exist_ok=True)

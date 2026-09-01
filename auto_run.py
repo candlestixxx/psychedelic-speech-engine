@@ -127,8 +127,8 @@ def main():
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     p.add_argument("--credit-name", default=None, help="Speaker name to show in a fading title card (e.g. 'Dr. Albert Hofmann')")
     p.add_argument("--credit-sub", default=None, help="Persistent source/credit line (e.g. 'Interview excerpt - AI re-voicing')")
-    p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido"], default="default",
-                   help="Visual style layer (acid = hue cycling, mirror/kaleido = kaleidoscope)")
+    p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default",
+                   help="Visual style layer (acid = hue cycling, mirror/kaleido = kaleidoscope, layered = psychedelic base + Mandelbrot)")
     args = p.parse_args()
 
     # Create isolated workspace directory for this execution
