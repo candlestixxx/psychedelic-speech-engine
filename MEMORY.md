@@ -58,9 +58,15 @@
 - GPU: GTX 1080 Ti (Pascal, sm_61) → `float32` compute. Whisper `batch_size=4`
   (16 OOMs the 11 GB card).
 - Suno API: separate `../suno-api` Node app on **port 3010**. Cookie is set and
-  verified (account `resurrectingbeats`, 10000 monthly credits). Restart with
+  verified (account `resurrectingbeats`, ~9980 monthly credits left). Restart with
   `cd ../suno-api && npx next dev -p 3010`. 1 generation = 2 songs = 10 credits;
   `auto_run` keeps only the first `audio_url`.
+- **Critical suno-api patch (LOCAL only, not pushed upstream)**: `src/lib/SunoApi.ts`
+  was fixed to read `media_urls` (m4a) because Suno now returns
+  `audio_url: ".../api/forbidden"`. Commit `642e49a` in the suno-api repo. If
+  `../suno-api` is re-cloned, re-apply: add `extractAudioUrl()` (prefer m4a from
+  `media_urls`) and use it in both `get()` and `generateSongs()` (replacing
+  `audio_url: audio.audio_url`).
 - YouTube download (yt-dlp) needs: `cookies.txt` (exported via the
   "Get cookies.txt LOCALLY" Chrome extension), the **deno** JS runtime, the
   `web` player client, and `--remote-components ejs:github`. YouTube rotates
