@@ -77,7 +77,9 @@ def process_speaker(row, out_root, args, idx, total):
             raise RuntimeError(f"No speech text for speaker {target}")
 
         polished = engine.polish_script(raw_text, args.prompt_style)
-        speech_wav = engine.synthesize_audio(polished, ws, args.voice)
+        line_audios = engine.synthesize_lines(polished, args.voice)
+        if not line_audios:
+            raise RuntimeError("No speech lines were synthesized.")
 
         plan = ar.build_track_plan(args.count, style, args.bpm_min, args.bpm_max, args.others_per_4)
         print(f"  Track plan ({len(plan)} tracks):")
@@ -107,6 +109,7 @@ def process_speaker(row, out_root, args, idx, total):
                     norm_file = os.path.join(ws, f"norm_{spec['title']}.mp3")
                     detected, _ = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                     print(f"    render {j}: detected {detected:.1f} -> {bpm:.0f} BPM")
+                speech_wav = engine.save_rhythmic_speech(line_audios, bpm, os.path.join(ws, f"rhythmic_{j}.wav"))
                 render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                                   delay=args.delay, size=args.size,
                                   credit_name=name, credit_sub=credit_line,
@@ -139,7 +142,7 @@ def main():
     p.add_argument("--delay", type=float, default=0.0)
     p.add_argument("--no-stretch", action="store_true")
     p.add_argument("--size", default="1920x1080")
-    p.add_argument("--voice", default="af_heart")
+    p.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas")
     p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default")
     p.add_argument("--upload", action="store_true", help="Upload rendered videos to the authorized YouTube channel")

@@ -118,7 +118,7 @@ def find_base_images(directory):
 
 
 def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
-                      delay=0.0, size="1920x1080", fps=30, punch=0.08,
+                      delay=0.0, size="1920x1080", fps=30, punch=0.10,
                       credit_name=None, credit_sub=None, visual="default",
                       base_seed=None, silhouette=None, base_images=None):
     """Render the psychedelic video for one track.
@@ -187,7 +187,7 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
             f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.4[fg]",
             base_filter,
-            f"[bg][fg]blend=all_mode=screen,format=yuv420p[VIS]",
+            f"[bg][fg]blend=all_mode=screen,format=yuv420p,eq=brightness='1+0.18*pow(max(0,cos(2*PI*n/{period:.4f})),6)':saturation=1.15[VIS]",
         ]
     else:
         vf_parts.append(
@@ -209,7 +209,7 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
             if visual == "kaleido":
                 vf_parts.append(f"[{src}]hue=h='6*t':s=1.4[vz2]")
                 src = "vz2"
-        vf_parts.append(f"[{src}]format=yuv420p[VIS]")
+        vf_parts.append(f"[{src}]format=yuv420p,eq=brightness='1+0.18*pow(max(0,cos(2*PI*n/{period:.4f})),6)':saturation=1.15[VIS]")
 
     final_label = "VIS"
     if sil_idx is not None:

@@ -35,7 +35,7 @@ def setup_argparse():
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay (seconds)")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
-    parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
+    parser.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     parser.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     parser.add_argument("--subtitle-style", default="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", help="FFmpeg force_style subtitle config")
     return parser.parse_args()
@@ -198,8 +198,12 @@ def polish_script(raw_text, prompt_style):
     }
 
     prompt = (
-        "Clean the following transcript, remove filler words, and format the speech "
-        f"into {prompt_style}. Output ONLY the polished text:\n\n"
+        "You are editing a spoken-word piece. From the transcript below, extract the "
+        "most profound, quotable moments — the speaker's KEY points — VERBATIM. Keep "
+        "their exact words; only remove filler (um, uh, you know, stutters). Break the "
+        "result into short standalone lines (one complete thought per line), separated "
+        "by newlines. Do NOT paraphrase, summarize, or add any words. "
+        f"Tone/narrative flavor: {prompt_style}. Output ONLY the quotes, one per line:\n\n"
         f"{raw_text}"
     )
 
@@ -251,6 +255,53 @@ def synthesize_audio(text, workspace_dir, voice_id):
     output_speech_wav = os.path.join(workspace_dir, "synthesized_speech.wav")
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
+
+
+def synthesize_lines(text, voice_id):
+    """Synthesize each line separately; returns a list of float32 mono arrays."""
+    from kokoro import KPipeline
+    import numpy as np
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    pipeline = KPipeline(lang_code='a', device=device)
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    audios = []
+    for line in lines:
+        chunks = []
+        for _gs, _ps, audio in pipeline(line, voice=voice_id, speed=1.0, split_pattern=r'\n+'):
+            if audio is not None:
+                chunks.append(audio)
+        if chunks:
+            audios.append(np.concatenate(
+                [a.cpu().numpy() if hasattr(a, "cpu") else np.asarray(a) for a in chunks]
+            ))
+    return audios
+
+
+def build_rhythmic_speech(line_audios, bpm, sr=24000, gap_frac=0.25):
+    """Place each line so its start lands on a beat; returns one float32 array."""
+    import numpy as np
+    beat_samples = int(sr * 60.0 / max(1.0, bpm))
+    gap = int(beat_samples * gap_frac)
+    placements = []
+    t = gap
+    for a in line_audios:
+        start = int(np.ceil(t / beat_samples) * beat_samples)
+        placements.append((start, a))
+        t = start + len(a) + gap
+    total = max(placements[-1][0] + len(placements[-1][1]) + gap, sr)
+    out = np.zeros(total, dtype=np.float32)
+    for start, a in placements:
+        out[start:start + len(a)] += a
+    return out
+
+
+def save_rhythmic_speech(line_audios, bpm, out_path, sr=24000):
+    import soundfile as sf
+    arr = build_rhythmic_speech(line_audios, bpm, sr=sr)
+    sf.write(out_path, arr, sr)
+    return out_path
+
 
 def _ffmpeg_subtitle_path(path):
     """Escape a path for use inside ffmpeg's subtitles/ass filter (Windows-safe)."""

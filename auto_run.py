@@ -114,8 +114,10 @@ def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_s
     audio_wav = engine.download_audio(url, workspace_dir, start, end)
     srt_file, raw_text = engine.extract_speech_and_srt(audio_wav, speaker, workspace_dir)
     polished = engine.polish_script(raw_text, prompt_style)
-    speech_wav = engine.synthesize_audio(polished, workspace_dir, voice)
-    return speech_wav, srt_file
+    line_audios = engine.synthesize_lines(polished, voice)
+    if not line_audios:
+        raise RuntimeError("No speech lines were synthesized.")
+    return line_audios, srt_file
 
 
 def main():
@@ -135,7 +137,7 @@ def main():
     p.add_argument("--delay", type=float, default=0.0, help="Delay before speech starts (seconds)")
     p.add_argument("--no-stretch", action="store_true", help="Skip BPM time-stretch normalization")
     p.add_argument("--size", default="1920x1080", help="Video size (e.g. 1280x720 for faster renders)")
-    p.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
+    p.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     p.add_argument("--credit-name", default=None, help="Speaker name to show in a fading title card (e.g. 'Dr. Albert Hofmann')")
     p.add_argument("--credit-sub", default=None, help="Persistent source/credit line (e.g. 'Interview excerpt - AI re-voicing')")
@@ -163,7 +165,7 @@ def main():
     # Extract speech FIRST: the YouTube download is cookie-sensitive, so do it
     # immediately (before Suno's slow generation) to avoid cookie rotation.
     try:
-        speech_wav, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style)
+        line_audios, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style)
     except Exception as e:
         print(f"Speech extraction failed: {e}")
         sys.exit(1)
@@ -200,6 +202,8 @@ def main():
                 norm_file = f"norm_{spec['title']}.mp3"
                 detected, _stretched = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                 print(f"[{idx}/{len(tracks)}] {spec['title']}: detected {detected:.1f} -> stretched to {bpm:.0f} BPM")
+            speech_wav = engine.save_rhythmic_speech(line_audios, bpm,
+                                                     os.path.join(workspace_dir, f"rhythmic_{idx}.wav"))
             render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                               delay=args.delay, size=args.size,
                               credit_name=args.credit_name, credit_sub=args.credit_sub,
