@@ -5,9 +5,9 @@ identity ("our own sound") regardless of the sub-genre.
 """
 
 # Applied to EVERY track -> the channel's signature sound.
+# (Kept compact: Suno's style field is capped at 200 characters.)
 SIGNATURE_TAGS = (
-    "pure instrumental, hypnotic spiritual journey, deep meditative groove, "
-    "high quality production, psychedelic"
+    "instrumental, hypnotic spiritual journey, deep meditative groove, psychedelic"
 )
 
 # Keeps generations instrumental (Suno sometimes adds vocals otherwise).
@@ -19,7 +19,7 @@ PSYTRANCE_STYLES = {
     "fullon": {
         "bpm": (144, 148),
         "tags": "psytrance, full-on, Goa trance, rolling bassline, acid squelches, "
-                "hypnotic tribal percussion, lush pads, continuous groove",
+                "tribal percussion, lush pads",
     },
     "darkpsy": {
         "bpm": (148, 160),

@@ -26,6 +26,15 @@ SUNO_API_URL = os.environ.get("SUNO_API_URL", "http://localhost:3010/api/custom_
 SUNO_TIMEOUT = int(os.environ.get("SUNO_TIMEOUT", "600"))
 
 
+def _cap_tags(tags, limit=200):
+    """Truncate a Suno style string to `limit` chars at a comma boundary."""
+    tags = tags.strip()
+    if len(tags) <= limit:
+        return tags
+    cut = tags[:limit].rfind(",")
+    return tags[:cut].rstrip() if cut > 0 else tags[:limit].rstrip()
+
+
 def build_track_spec(kind, genre_key=None, style_key=None, bpm_min=144.0, bpm_max=170.0):
     """Build one track spec: {kind, genre, bpm (target), tags, title}."""
     if kind == "psytrance":
@@ -37,13 +46,13 @@ def build_track_spec(kind, genre_key=None, style_key=None, bpm_min=144.0, bpm_ma
         if hi < lo:
             hi = lo
         bpm = random.uniform(lo, hi)
-        tags = f"{styles.SIGNATURE_TAGS}, {st['tags']}, {int(round(bpm))} BPM"
+        tags = _cap_tags(f"{styles.SIGNATURE_TAGS}, {st['tags']}, {int(round(bpm))} BPM")
         title = f"psy_{style_key}_{int(round(bpm))}bpm"
         return {"kind": "psytrance", "genre": style_key, "bpm": bpm, "tags": tags, "title": title}
 
     g = styles.OTHER_GENRES[genre_key]
     bpm = random.uniform(g["bpm"][0], g["bpm"][1])
-    tags = f"{styles.SIGNATURE_TAGS}, {g['tags']}, {int(round(bpm))} BPM"
+    tags = _cap_tags(f"{styles.SIGNATURE_TAGS}, {g['tags']}, {int(round(bpm))} BPM")
     title = f"{genre_key}_{int(round(bpm))}bpm"
     return {"kind": "other", "genre": genre_key, "bpm": bpm, "tags": tags, "title": title}
 
