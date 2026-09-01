@@ -19,7 +19,7 @@ load_dotenv()
 import app as engine
 import bpm_tools
 import styles
-from render_beat import render_beat_video
+from render_beat import render_beat_video, find_base_images
 import silhouette
 
 SUNO_API_URL = os.environ.get("SUNO_API_URL", "http://localhost:3010/api/custom_generate")
@@ -170,6 +170,7 @@ def main():
         sys.exit(1)
 
     sil = silhouette.fetch_silhouette(args.url, workspace_dir)
+    base_images = find_base_images(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
 
     print("\n=== [RENDER] Normalizing BPM + rendering beat-synced videos ===")
     for idx, (spec, music_file) in enumerate(tracks, 1):
@@ -187,7 +188,8 @@ def main():
             render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                               delay=args.delay, size=args.size,
                               credit_name=args.credit_name, credit_sub=args.credit_sub,
-                              visual=args.visual, silhouette=sil)
+                              visual=args.visual, silhouette=sil, base_images=base_images,
+                              base_seed=idx)
             print(f"        -> {out_name}")
         except Exception as e:
             print(f"        RENDER FAILED: {e}")

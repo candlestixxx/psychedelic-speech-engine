@@ -98,10 +98,29 @@ def _random_base_source(size, fps, rng):
     return f"mandelbrot=size={size}:rate={fps}:start_scale=2.5:end_scale=0.15:maxiter=150"
 
 
+def find_base_images(directory):
+    """Return psychedelic base-art image paths in a directory.
+
+    Excludes the auto thumbnail/silhouette files so only your art examples are
+    picked up as base layers.
+    """
+    if not os.path.isdir(directory):
+        return []
+    exts = (".png", ".jpg", ".jpeg", ".webp")
+    out = []
+    for fn in sorted(os.listdir(directory)):
+        low = fn.lower()
+        if "silhouette" in low or "thumb" in low:
+            continue
+        if low.endswith(exts):
+            out.append(os.path.join(directory, fn))
+    return out
+
+
 def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
                       delay=0.0, size="1920x1080", fps=30, punch=0.08,
                       credit_name=None, credit_sub=None, visual="default",
-                      base_seed=None, silhouette=None):
+                      base_seed=None, silhouette=None, base_images=None):
     """Render the psychedelic video for one track.
 
     `visual` in {default, acid, mirror, kaleido, layered}.
@@ -127,9 +146,16 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
         f":maxiter=200:end_pts={end_pts}",
     ]
     n_video = 1
+    base_is_image = False
     if visual == "layered":
         rng = random.Random(base_seed)
-        inputs += ["-f", "lavfi", "-i", _random_base_source(size, fps, rng)]
+        imgs = [p for p in (base_images or []) if os.path.exists(p)]
+        if imgs:
+            pick = imgs[base_seed % len(imgs)] if base_seed is not None else rng.choice(imgs)
+            inputs += ["-loop", "1", "-i", pick]
+            base_is_image = True
+        else:
+            inputs += ["-f", "lavfi", "-i", _random_base_source(size, fps, rng)]
         n_video = 2
 
     speech_idx = n_video
@@ -145,11 +171,22 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
     vf_parts = []
     if visual == "layered":
         z_bg = f"1+0.04*pow(max(0,cos(2*PI*on/{period:.4f})),8)"
+        if base_is_image:
+            z_img = f"(1+0.4*on/{end_pts})*(1+0.05*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
+            base_filter = (
+                f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=yuv420p,"
+                f"zoompan=z='{z_img}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
+                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.3[bg]"
+            )
+        else:
+            base_filter = (
+                f"[1:v]hue=h='6*t':s=1.6,gblur=sigma=12,zoompan=z='{z_bg}'"
+                f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps}[bg]"
+            )
         vf_parts += [
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
             f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.4[fg]",
-            f"[1:v]hue=h='6*t':s=1.6,gblur=sigma=12,zoompan=z='{z_bg}'"
-            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps}[bg]",
+            base_filter,
             f"[bg][fg]blend=all_mode=screen,format=yuv420p[VIS]",
         ]
     else:

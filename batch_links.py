@@ -34,7 +34,7 @@ load_dotenv()
 import app as engine
 import auto_run as ar
 import bpm_tools
-from render_beat import render_beat_video
+from render_beat import render_beat_video, find_base_images
 import silhouette
 
 
@@ -59,6 +59,7 @@ def process_speaker(row, out_root, args, idx, total):
 
     try:
         sil = silhouette.fetch_silhouette(url, ws)
+        base_images = find_base_images(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
         audio = engine.download_audio(url, ws, args.start, args.end)
         result = engine.transcribe_and_diarize(audio)
         stats = engine.speaker_stats(result)
@@ -109,7 +110,8 @@ def process_speaker(row, out_root, args, idx, total):
                 render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                                   delay=args.delay, size=args.size,
                                   credit_name=name, credit_sub=credit_line,
-                                  visual=args.visual, silhouette=sil)
+                                  visual=args.visual, silhouette=sil, base_images=base_images,
+                                  base_seed=j)
                 print(f"    -> {out_name}")
             except Exception as e:
                 print(f"    RENDER FAILED: {e}")
