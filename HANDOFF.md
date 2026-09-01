@@ -9,12 +9,17 @@
 - Verified BPM detection, time-stretch, beat-synced rendering, and CUDA paths.
 - Merged all fixes into `main`.
 
+## Status
+
+- ✅ Suno cookie is configured and **verified working**: `GET /api/get_limit`
+  returns `{"credits_left":10000,"period":"month","monthly_limit":10000,"monthly_usage":0}`
+  (account `resurrectingbeats`).
+- ✅ Suno API runs on port **3010** (`npx next dev -p 3010` in `../suno-api`).
+
 ## Next steps
 
-1. Paste the Suno cookie into `suno-api/.env` (`SUNO_COOKIE=`) to enable real
-   music generation.
-2. Run `auto_run.py --url "..." --count 8` for a full batch.
-3. Watch for Suno hCaptcha — add `TWOCAPTCHA_KEY` if generation fails.
+1. Run `auto_run.py --url "..." --count 8` for a full batch.
+2. Watch for Suno hCaptcha — add `TWOCAPTCHA_KEY` to `suno-api/.env` if generation fails.
 
 ## Key facts
 

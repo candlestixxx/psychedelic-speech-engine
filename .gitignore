@@ -8,3 +8,10 @@ downloaded_audio.wav
 synthesized_speech.wav
 isolated_speech.srt
 workspace_run_*/
+
+# YouTube session cookie (password-like; never commit)
+cookies.txt
+probe.log
+probe_*/
+*.credits.ass
+batch_output/

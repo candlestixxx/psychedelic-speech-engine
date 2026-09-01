@@ -19,7 +19,9 @@
 ## Environment
 
 - Python 3.11 venv; torch 2.8.0+cu126 (GTX 1080 Ti, Pascal → float32 compute).
-- Suno API: separate `suno-api` Node app on port 3010 (`SUNO_COOKIE` required).
+- Suno API: separate `suno-api` Node app on port 3010. Cookie is set and
+  verified (account `resurrectingbeats`, 10000 monthly credits). Restart with
+  `cd ../suno-api && npx next dev -p 3010` if the port is idle.
 - DeepSeek (`DEEPSEEK_API_KEY`) + HuggingFace (`HF_TOKEN`) in `.env`.
 
 ## Development preferences

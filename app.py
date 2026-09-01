@@ -54,10 +54,18 @@ def download_audio(url, workspace_dir, start=None, end=None):
     print(msg)
     cmd = [
         "yt-dlp",
+        "--remote-components", "ejs:github",
+        "--extractor-args", "youtube:player_client=web",
         "--extract-audio",
         "--audio-format", "wav",
         "--output", output_wav,
     ]
+    # YouTube bot-walls unauthenticated IPs; use a logged-in session if present.
+    cookies_file = os.environ.get("YT_COOKIES_FILE") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "cookies.txt"
+    )
+    if os.path.exists(cookies_file):
+        cmd = ["yt-dlp", "--cookies", cookies_file] + cmd[1:]
     if section:
         cmd += ["--download-sections", section]
     cmd.append(url)
@@ -72,8 +80,12 @@ def format_timestamp(seconds):
     return f"{hours:02d}:{minutes:02d}:{secs:06.3f}".replace(".", ",")
 
 
-def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
-    print("[2/5] Transcribing and diarizing (this can take a while)...")
+def transcribe_and_diarize(audio_file, model_name="large-v2"):
+    """Run WhisperX transcription + pyannote diarization.
+
+    Returns the result whose `segments` each carry a 'speaker' label.
+    """
+    print("[diarize] Transcribing and diarizing (this can take a while)...")
     import whisperx
     from whisperx.diarize import DiarizationPipeline
 
@@ -96,27 +108,48 @@ def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
         compute_type = "int8"
     print(f"    device={device}, compute_type={compute_type}")
 
-    model = whisperx.load_model("large-v2", device, compute_type=compute_type)
+    model = whisperx.load_model(model_name, device, compute_type=compute_type)
     audio = whisperx.load_audio(audio_file)
-    result = model.transcribe(audio, batch_size=16 if device == "cuda" else 4)
+    result = model.transcribe(audio, batch_size=4)
 
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
     # whisperx 3.8.x: DiarizationPipeline lives in whisperx.diarize and takes `token=`
     diarize_model = DiarizationPipeline(token=hf_token, device=device)
-    diarize_segments = diarize_model(audio)
-    result = whisperx.assign_word_speakers(diarize_segments, result)
+    result = whisperx.assign_word_speakers(diarize_model(audio), result)
+    return result
 
+
+def speaker_stats(result):
+    """Return {speaker_id: {'secs': float, 'count': int}} from a diarized result."""
+    from collections import defaultdict
+    stats = defaultdict(lambda: {"secs": 0.0, "count": 0})
+    for seg in result.get("segments", []):
+        spk = seg.get("speaker", "UNKNOWN")
+        stats[spk]["secs"] += seg["end"] - seg["start"]
+        stats[spk]["count"] += 1
+    return dict(stats)
+
+
+def dominant_speaker(result):
+    """Pick the speaker who talks the most (usually the subject, not the interviewer)."""
+    stats = speaker_stats(result)
+    if not stats:
+        return None
+    return max(stats, key=lambda s: stats[s]["secs"])
+
+
+def build_srt_and_text(result, target_speaker, workspace_dir):
+    """Build an SRT + raw text from a diarized result for one speaker."""
     srt_content = ""
     raw_text = ""
     idx = 1
-    for segment in result["segments"]:
+    for segment in result.get("segments", []):
         if segment.get("speaker") == target_speaker:
             start = format_timestamp(segment["start"])
             end = format_timestamp(segment["end"])
             text = segment["text"].strip()
-
             srt_content += f"{idx}\n{start} --> {end}\n{text}\n\n"
             raw_text += text + " "
             idx += 1
@@ -129,6 +162,11 @@ def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
         print(f"    WARNING: no speech found for speaker '{target_speaker}'. "
               f"Available speakers will be visible in the full transcript run.")
     return srt_filename, raw_text
+
+
+def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
+    result = transcribe_and_diarize(audio_file)
+    return build_srt_and_text(result, target_speaker, workspace_dir)
 
 
 def polish_script(raw_text, prompt_style):

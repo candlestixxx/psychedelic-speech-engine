@@ -125,6 +125,10 @@ def main():
     p.add_argument("--size", default="1920x1080", help="Video size (e.g. 1280x720 for faster renders)")
     p.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
+    p.add_argument("--credit-name", default=None, help="Speaker name to show in a fading title card (e.g. 'Dr. Albert Hofmann')")
+    p.add_argument("--credit-sub", default=None, help="Persistent source/credit line (e.g. 'Interview excerpt - AI re-voicing')")
+    p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido"], default="default",
+                   help="Visual style layer (acid = hue cycling, mirror/kaleido = kaleidoscope)")
     args = p.parse_args()
 
     # Create isolated workspace directory for this execution
@@ -178,7 +182,9 @@ def main():
                 detected, _stretched = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                 print(f"[{idx}/{len(tracks)}] {spec['title']}: detected {detected:.1f} -> stretched to {bpm:.0f} BPM")
             render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
-                              delay=args.delay, size=args.size)
+                              delay=args.delay, size=args.size,
+                              credit_name=args.credit_name, credit_sub=args.credit_sub,
+                              visual=args.visual)
             print(f"        -> {out_name}")
         except Exception as e:
             print(f"        RENDER FAILED: {e}")
