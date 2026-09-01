@@ -99,7 +99,9 @@ def generate_suno_track(spec):
     for track in data:
         url = track.get("audio_url")
         if url:
-            filename = f"suno_{spec['title']}_{int(time.time())}.mp3"
+            # Suno now serves m4a via media_urls; keep the real extension.
+            ext = os.path.splitext(url.split("?")[0])[1] or ".mp3"
+            filename = f"suno_{spec['title']}_{int(time.time())}{ext}"
             with open(filename, "wb") as f:
                 f.write(requests.get(url, timeout=SUNO_TIMEOUT).content)
             return filename
