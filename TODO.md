@@ -8,13 +8,20 @@
 - [x] CUDA support (Pascal float32 fallback; whisper batch_size=4)
 - [x] Time-range extraction (`--start`/`--end`)
 - [x] Suno API configured + verified (port 3010, 10000 credits)
-- [x] YouTube download unblocked (cookies.txt + deno + web client)
+- [x] Suno media_urls patch (audio_url was "forbidden")
+- [x] YouTube download unblocked (Firefox cookies auto-read + deno + web client)
 - [x] Speaker auto-identification (`diarize_probe.py`, `dominant_speaker`)
 - [x] Visual styles (`default`/`acid`/`mirror`/`kaleido`/`layered`)
 - [x] Layered mode with user art base + Mandelbrot glow, per-track cycling
+- [x] Beat-flash visuals (eq brightness pulse on kick) + stronger zoom pulse
 - [x] Speaker credits (title card + source line + name watermark)
 - [x] Speaker silhouette from thumbnail (rembg)
 - [x] Multi-speaker batch driver (`batch_links.py` + `links.csv`)
+- [x] YouTube OAuth2 upload (`youtube_auth.py`, `youtube_upload.py`, `--upload`)
+- [x] Male voice default (`am_onyx`)
+- [x] Verbatim key-quote extraction (DeepSeek)
+- [x] Rhythmic beat-synced speech (`synthesize_lines` + `build_rhythmic_speech`)
+- [x] End-to-end smoke test posted to YouTube (unlisted)
 
 ## Next
 - [ ] Beat-accurate zoom (use detected onset times instead of BPM-periodic pulse)

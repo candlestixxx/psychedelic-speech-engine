@@ -2,40 +2,43 @@
 
 ## Summary
 
-- Suno API configured and **verified** (port 3010, 10000 monthly credits,
-  account `resurrectingbeats`).
-- YouTube download unblocked: `cookies.txt` (extension) + deno + web client;
-  ffmpeg/ffprobe/deno fixed on PATH.
+- Suno API configured, patched (`media_urls` m4a fix), and **verified** (port
+  3010, account `resurrectingbeats`).
+- YouTube download automatic via **Firefox cookies** (`--cookies-from-browser
+  firefox`) + deno + web client; ffmpeg/ffprobe/deno fixed on PATH.
 - Speaker auto-identification (`diarize_probe.py`, `dominant_speaker()`).
-- Visual engine: `layered` psychedelic mode (user art base + Mandelbrot glow),
-  plus `acid`/`mirror`/`kaleido`, credits, name watermark, and silhouette ghost.
+- Visual engine: `layered` mode (user art base + Mandelbrot glow + **beat
+  flash**) plus `acid`/`mirror`/`kaleido`, credits, name watermark, silhouette.
+- **Male voice** default (`am_onyx`) + **verbatim key quotes** + **rhythmic
+  beat-synced speech** (lines snap to beats at the track BPM).
+- YouTube upload (OAuth2) wired into `auto_run.py` / `batch_links.py`
+  (`--upload`); verified posting to channel "PsySpeech Engine".
 - `batch_links.py` + `links.csv` for multi-speaker automation.
-- All work committed + pushed through commit `2c07717`.
+- **First video is live (unlisted)**: https://youtu.be/_yt0ZOWksZQ
+- All work committed + pushed through `e49c22f`.
 
 ## Status
 
-- ✅ Suno API live on 3010 (restart: `cd ../suno-api && npx next dev -p 3010`).
-- ✅ YouTube download works (needs `cookies.txt`; re-export on rotation).
+- ✅ Suno live on 3010 (restart: `cd ../suno-api && npx next dev -p 3010`).
+  ⚠️ Keep the local `extractAudioUrl` patch if re-cloning suno-api (see MEMORY).
+- ✅ YouTube download automatic (Firefox cookies; keep YouTube logged in in Firefox).
 - ✅ Hofmann = `SPEAKER_01` (see MEMORY.md).
-- ✅ Visual styles render-tested: default / acid / mirror / kaleido / layered
-  + image base + silhouette.
+- ✅ YouTube upload authorized (`youtube_token.json`), channel verified.
 
 ## Next steps
 
-1. Run the smoke test (1 track) then a full batch:
-   `batch_links.py links.csv --visual layered`.
-2. Watch for Suno hCaptcha → add `TWOCAPTCHA_KEY` to `suno-api/.env`.
-3. Re-export `cookies.txt` (one click in the extension) when YouTube rotates.
-4. Optional: disable the rembg silhouette ghost (the art already contains the
-   silhouette) — one-line change in `render_beat.py` if a pure art+Mandelbrot
-   look is preferred.
-5. Optional: add a `silhouette` override column to `links.csv` / `--silhouette`
-   flag for manual transparent PNGs.
+1. Review the test video, then run a full batch:
+   `batch_links.py links.csv --count 8 --visual layered --upload --privacy unlisted`.
+2. Watch Suno hCaptcha → add `TWOCAPTCHA_KEY` to `suno-api/.env`.
+3. Optionally: silhouette override column in `links.csv`, or disable the
+   silhouette ghost for a pure art+Mandelbrot look.
 
 ## Key facts
 
-- Venv: `.venv` (uv-managed; use `uv pip install --python .venv/Scripts/python.exe <pkg>`).
+- Venv: `.venv` (uv-managed; `uv pip install --python .venv/Scripts/python.exe <pkg>`).
 - GPU: GTX 1080 Ti → float32; whisper `batch_size=4`.
-- Suno: 1 gen = 2 songs = 10 credits; only first `audio_url` is used.
-- Speaker names are manual (diarization is anonymous `SPEAKER_XX`).
-- `cookies.txt` and `assets/` are gitignored (secrets / local media).
+- Suno: 1 gen = 2 songs = 20 credits; only first `audio_url` used. ~9940 left.
+- Voice default `am_onyx`; speaker names are manual (`SPEAKER_XX` is anonymous).
+- `cookies.txt`, `youtube_token.json`, `assets/`, `.env` are gitignored.
+- YouTube API quota: ~6 uploads/day default (1600 units each) — request a
+  quota increase for bulk posting.

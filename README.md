@@ -18,9 +18,10 @@ is detected and normalized to an exact target.
    a `--start`/`--end` time range of the video).
 2. **Transcription + diarization** — `WhisperX` + `pyannote.audio` transcribe
    the audio and isolate the target speaker (`SPEAKER_01`).
-3. **Script polishing** — the `DeepSeek` API strips filler words and formats
-   the speech into rhythmic spoken-word stanzas.
-4. **Voice re-synthesis** — `Kokoro-82M` TTS re-voices the script locally.
+3. **Key-quote extraction** — the `DeepSeek` API pulls the speaker's most
+   quotable moments **verbatim** (removing only fillers), one thought per line.
+4. **Voice re-synthesis** — `Kokoro-82M` TTS re-voices each line in a male
+   voice (`am_onyx`), then places each line **on a beat** (rhythmic sync).
 5. **Music generation** — a self-hosted **Suno API** generates instrumental
    tracks from a genre/style library (see below).
 6. **Beat-synced render** — `FFmpeg` renders a multi-layer psychedelic scene:
@@ -90,8 +91,8 @@ without spending Suno credits:
 - **Node.js 18+** (to run the Suno API locally — no Docker required)
 - **deno** — yt-dlp's JS runtime (required to solve YouTube's player challenge)
 - **Git**
-- **YouTube cookies** — export `cookies.txt` with the "Get cookies.txt LOCALLY"
-  Chrome extension (YouTube bot-walls unauthenticated IPs)
+- **Firefox** — log into YouTube there once; the pipeline reads its cookies
+  live (`--cookies-from-browser firefox`), so no manual re-export.
 - A CUDA GPU is optional; everything falls back to CPU. On Pascal cards
   (GTX 10-series) the pipeline auto-selects `float32` instead of `float16`.
 
@@ -169,7 +170,7 @@ request containing `?__clerk_api_version` → copy the `Cookie` header).
 | `--size` | `1920x1080` | video size (`1280x720` renders faster) |
 | `--no-stretch` | off | skip BPM normalization |
 | `--output` | `final_master` | output filename prefix |
-| `--voice` | `af_heart` | Kokoro TTS voice ID |
+| `--voice` | `am_onyx` | Kokoro TTS voice ID (`am_*` male, `af_*` female) |
 | `--prompt-style` | rhythmic spoken-word stanzas | DeepSeek narrative flavor |
 | `--credit-name` | (none) | speaker name for the title card |
 | `--credit-sub` | (none) | persistent source/credit line |

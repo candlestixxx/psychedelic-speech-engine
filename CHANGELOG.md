@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0] - 2026-09-01
+### Added
+- **Male TTS voice by default** (`am_onyx`; `am_*` = male, `af_*` = female).
+- **Verbatim key-quote extraction**: DeepSeek now pulls the speaker's most
+  quotable moments word-for-word (removing only fillers), one thought per line,
+  instead of rewriting into stanzas.
+- **Beat-synced rhythmic speech**: each line is synthesized separately and its
+  start is snapped to a beat at the track's BPM (`synthesize_lines`,
+  `build_rhythmic_speech`, `save_rhythmic_speech` in `app.py`).
+- **Beat-flash visuals**: a brightness pulse on every kick (`eq` filter) plus a
+  stronger zoom pulse (punch 0.08 → 0.10).
+- **Automatic YouTube cookies from Firefox** (`--cookies-from-browser firefox`),
+  removing the manual cookies.txt re-export step.
+
 ## [1.3.0] - 2026-09-01
 ### Added
 - **Visual styles** (`render_beat.py --visual`): `default`, `acid` (hue
