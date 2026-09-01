@@ -41,6 +41,13 @@ def setup_argparse():
     return parser.parse_args()
 
 
+def _firefox_available():
+    for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
+        if base and os.path.exists(os.path.join(base, "Mozilla Firefox", "firefox.exe")):
+            return True
+    return False
+
+
 def download_audio(url, workspace_dir, start=None, end=None):
     output_wav = os.path.join(workspace_dir, "downloaded_audio.wav")
     section = None
@@ -60,12 +67,19 @@ def download_audio(url, workspace_dir, start=None, end=None):
         "--audio-format", "wav",
         "--output", output_wav,
     ]
-    # YouTube bot-walls unauthenticated IPs; use a logged-in session if present.
-    cookies_file = os.environ.get("YT_COOKIES_FILE") or os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "cookies.txt"
-    )
-    if os.path.exists(cookies_file):
-        cmd = ["yt-dlp", "--cookies", cookies_file] + cmd[1:]
+    # YouTube bot-walls unauthenticated IPs. Prefer Firefox (yt-dlp reads its
+    # cookies live, so no manual re-export); fall back to a cookies.txt export.
+    cookies_args = []
+    if _firefox_available():
+        cookies_args = ["--cookies-from-browser", "firefox"]
+    else:
+        cookies_file = os.environ.get("YT_COOKIES_FILE") or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "cookies.txt"
+        )
+        if os.path.exists(cookies_file):
+            cookies_args = ["--cookies", cookies_file]
+    if cookies_args:
+        cmd = ["yt-dlp"] + cookies_args + cmd[1:]
     if section:
         cmd += ["--download-sections", section]
     cmd.append(url)
