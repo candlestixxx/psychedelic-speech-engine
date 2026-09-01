@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.3.0] - 2026-09-01
+### Added
+- **Visual styles** (`render_beat.py --visual`): `default`, `acid` (hue
+  cycling), `mirror`, `kaleido`, and `layered`.
+- **Layered psychedelic mode**: a randomized base layer (cellular automaton /
+  animated gradient / Sierpinski / Game-of-Life / soft fractal) **or the
+  user's art images in `assets/`**, with the sharp Mandelbrot composited on
+  top via a screen glow blend; both layers pulse to the track BPM, and base
+  images are cycled per track so every video differs.
+- **Speaker credits**: title card + persistent source line + periodic name
+  watermark (`--credit-name` / `--credit-sub`).
+- **Speaker silhouette**: auto rembg cutout from the YouTube thumbnail,
+  ghosted into the video (`silhouette.py`).
+- `diarize_probe.py`: identify speakers with zero music cost.
+- `batch_links.py` + `links.csv`: multi-speaker batch driver with automatic
+  dominant-speaker selection.
+- `app.py` helpers: `transcribe_and_diarize`, `speaker_stats`,
+  `dominant_speaker`, `build_srt_and_text`.
+- YouTube download hardening: `cookies.txt` + deno JS runtime + `web` client +
+  `--remote-components ejs:github`.
+- `requirements.txt`: `rembg`, `Pillow`.
+
+### Fixed
+- CUDA out-of-memory on the GTX 1080 Ti (whisper `batch_size` 16 → 4).
+- `ffmpeg`/`ffprobe` missing from PATH (WinGet Links shims; stale winget path).
+- yt-dlp 403 / "only images" bot wall (authenticated cookies + deno).
+- `scale`/`crop` used `WxH` instead of `W:H` in the image base filter.
+
 ## [1.2.0] - 2026-08-31
 ### Added
 - **Dynamic Prompt Styles**: `--prompt-style` instructs the DeepSeek LLM on the

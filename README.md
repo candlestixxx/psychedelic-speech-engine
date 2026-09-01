@@ -23,9 +23,11 @@ is detected and normalized to an exact target.
 4. **Voice re-synthesis** — `Kokoro-82M` TTS re-voices the script locally.
 5. **Music generation** — a self-hosted **Suno API** generates instrumental
    tracks from a genre/style library (see below).
-6. **Beat-synced render** — `FFmpeg` renders the Mandelbrot fractal with a
-   kick-triggered zoom pulse at the track's BPM, burns in subtitles, and mixes
-   the re-voiced speech over the full-length track.
+6. **Beat-synced render** — `FFmpeg` renders a multi-layer psychedelic scene:
+   a base layer (procedural fractal/automaton or your art in `assets/`) plus
+   the Mandelbrot glowing on top, all pulsing to the track's BPM. Subtitles,
+   speaker credits, and an optional speaker silhouette are burned in, and the
+   re-voiced speech is mixed over the full-length track.
 
 ---
 
@@ -47,6 +49,38 @@ is detected and normalized to an exact target.
 - **BPM is detected then time-stretched** (`atempo`) to the exact target, so
   every track lands precisely in range (Suno's BPM is only approximate).
 
+## 🎨 Visual styles, credits & silhouette
+
+`render_beat.py` supports `--visual` modes:
+- `default` — plain Mandelbrot + beat pulse.
+- `acid` — hue-cycling Mandelbrot.
+- `mirror` / `kaleido` — kaleidoscopic mirroring (and hue).
+- `layered` — a psychedelic base layer + the Mandelbrot glowing on top (screen
+  blend). The base is randomized per video from procedural generators, **or**
+  uses your art images placed in `assets/` (cycled per track).
+
+Speaker attribution is burned in automatically: a title card with the speaker's
+name (first ~5 s), a persistent source line at the bottom, and a periodic name
+watermark inside the art. `silhouette.py` auto-generates a transparent speaker
+cutout from the YouTube thumbnail (via `rembg`) and ghosts it into the video.
+
+## 🔍 Multi-speaker batch
+
+Drop a list of speakers into `links.csv`:
+```csv
+url,speaker_name,credit_line,speaker,style
+https://www.youtube.com/watch?v=...,Dr. Albert Hofmann,High Times interview 1994 (Peter Gorman) · AI re-voicing,,random
+```
+Then run:
+```bash
+.venv\Scripts\python batch_links.py links.csv --count 4 --visual layered
+```
+Leave `speaker` blank to auto-pick whoever talks the most. To identify speakers
+without spending Suno credits:
+```bash
+.venv\Scripts\python diarize_probe.py --url "URL" --start 0:00 --end 10:00
+```
+
 ---
 
 ## 🛠️ Prerequisites
@@ -54,7 +88,10 @@ is detected and normalized to an exact target.
 - **Python 3.11** (3.10 works; 3.14 is too new for `whisperx`)
 - **FFmpeg** on PATH (used for BPM/resample + rendering)
 - **Node.js 18+** (to run the Suno API locally — no Docker required)
+- **deno** — yt-dlp's JS runtime (required to solve YouTube's player challenge)
 - **Git**
+- **YouTube cookies** — export `cookies.txt` with the "Get cookies.txt LOCALLY"
+  Chrome extension (YouTube bot-walls unauthenticated IPs)
 - A CUDA GPU is optional; everything falls back to CPU. On Pascal cards
   (GTX 10-series) the pipeline auto-selects `float32` instead of `float16`.
 
@@ -132,6 +169,11 @@ request containing `?__clerk_api_version` → copy the `Cookie` header).
 | `--size` | `1920x1080` | video size (`1280x720` renders faster) |
 | `--no-stretch` | off | skip BPM normalization |
 | `--output` | `final_master` | output filename prefix |
+| `--voice` | `af_heart` | Kokoro TTS voice ID |
+| `--prompt-style` | rhythmic spoken-word stanzas | DeepSeek narrative flavor |
+| `--credit-name` | (none) | speaker name for the title card |
+| `--credit-sub` | (none) | persistent source/credit line |
+| `--visual` | `default` | `default` / `acid` / `mirror` / `kaleido` / `layered` |
 
 Example — 4 darkpsy + 3 other-genre tracks, from a 10-minute slice:
 ```bash
@@ -151,6 +193,9 @@ Example — 4 darkpsy + 3 other-genre tracks, from a 10-minute slice:
 
 - **First run downloads `large-v2` (~3 GB)** plus the diarization model into the
   HuggingFace cache (one-time).
+- **First silhouette run downloads the `rembg` model (~1 GB)** — one-time, cached.
+- **YouTube rotates cookies** — if downloads start returning 403 / "only images",
+  re-export `cookies.txt` with the extension.
 - **Suno BPM is approximate** — `auto_run.py` detects and stretches each track
   to its target, so output always lands in range.
 - **Suno CAPTCHA** — if generation fails with hCaptcha errors, add a paid
