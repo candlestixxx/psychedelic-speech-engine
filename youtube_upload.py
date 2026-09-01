@@ -62,6 +62,19 @@ def upload_video(file_path, title, description="", tags=None, privacy="unlisted"
     return resp["id"]
 
 
+def upload_track(path, speaker_name, genre, bpm, credit_line, privacy="unlisted"):
+    """Upload one rendered track with a standard title/description/tags."""
+    title = f"{speaker_name} — {genre} {int(round(bpm))} BPM"
+    description = (
+        f"{credit_line}\n\n"
+        "Psychedelic spoken-word music video — AI re-voicing · music by Suno\n\n"
+        "#psytrance #mandelbrot #psychedelic #spokenword #aimusic"
+    )
+    tags = [speaker_name, genre, "psytrance", "mandelbrot", "psychedelic",
+            "spoken word", "AI music"]
+    return upload_video(path, title, description, tags, privacy)
+
+
 def main():
     p = argparse.ArgumentParser(description="Upload a video to YouTube.")
     p.add_argument("video", help="Path to the MP4 to upload")

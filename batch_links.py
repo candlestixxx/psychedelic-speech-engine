@@ -113,6 +113,10 @@ def process_speaker(row, out_root, args, idx, total):
                                   visual=args.visual, silhouette=sil, base_images=base_images,
                                   base_seed=j)
                 print(f"    -> {out_name}")
+                if args.upload:
+                    import youtube_upload
+                    youtube_upload.upload_track(out_name, name, spec["genre"], spec["bpm"],
+                                                credit_line, args.privacy)
             except Exception as e:
                 print(f"    RENDER FAILED: {e}")
 
@@ -138,6 +142,8 @@ def main():
     p.add_argument("--voice", default="af_heart")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas")
     p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default")
+    p.add_argument("--upload", action="store_true", help="Upload rendered videos to the authorized YouTube channel")
+    p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="unlisted")
     args = p.parse_args()
 
     os.makedirs(args.output, exist_ok=True)

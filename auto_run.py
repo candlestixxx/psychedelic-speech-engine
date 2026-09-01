@@ -130,6 +130,8 @@ def main():
     p.add_argument("--credit-sub", default=None, help="Persistent source/credit line (e.g. 'Interview excerpt - AI re-voicing')")
     p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default",
                    help="Visual style layer (acid = hue cycling, mirror/kaleido = kaleidoscope, layered = psychedelic base + Mandelbrot)")
+    p.add_argument("--upload", action="store_true", help="Upload rendered videos to the authorized YouTube channel")
+    p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="unlisted")
     args = p.parse_args()
 
     # Create isolated workspace directory for this execution
@@ -191,6 +193,10 @@ def main():
                               visual=args.visual, silhouette=sil, base_images=base_images,
                               base_seed=idx)
             print(f"        -> {out_name}")
+            if args.upload:
+                import youtube_upload
+                youtube_upload.upload_track(out_name, args.credit_name or "Speaker", spec["genre"],
+                                            spec["bpm"], args.credit_sub or "", args.privacy)
         except Exception as e:
             print(f"        RENDER FAILED: {e}")
 
