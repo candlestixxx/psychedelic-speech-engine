@@ -160,6 +160,17 @@ def main():
         print(f"  {i:2d}. [{spec['kind']:9s}] {spec['genre']:22s} target {spec['bpm']:.0f} BPM")
     print(f"Total tracks: {len(plan)}")
 
+    # Extract speech FIRST: the YouTube download is cookie-sensitive, so do it
+    # immediately (before Suno's slow generation) to avoid cookie rotation.
+    try:
+        speech_wav, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style)
+    except Exception as e:
+        print(f"Speech extraction failed: {e}")
+        sys.exit(1)
+
+    sil = silhouette.fetch_silhouette(args.url, workspace_dir)
+    base_images = find_base_images(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
+
     print("\n=== [MUSIC] Generating tracks via Suno ===")
     tracks = []
     for i, spec in enumerate(plan, 1):
@@ -175,15 +186,6 @@ def main():
     if not tracks:
         print("No tracks were generated. Aborting.")
         sys.exit(1)
-
-    try:
-        speech_wav, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style)
-    except Exception as e:
-        print(f"Speech extraction failed: {e}")
-        sys.exit(1)
-
-    sil = silhouette.fetch_silhouette(args.url, workspace_dir)
-    base_images = find_base_images(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
 
     print("\n=== [RENDER] Normalizing BPM + rendering beat-synced videos ===")
     for idx, (spec, music_file) in enumerate(tracks, 1):
