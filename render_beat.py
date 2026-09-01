@@ -1,7 +1,7 @@
 """Beat-synced psychedelic video renderer.
 
-Layers (single-fractal modes): a Mandelbrot source gets a slow ambient zoom
-plus a kick-synced pulse (zoompan with a sharp cosine^8 bump at the BPM).
+Single-fractal modes: a Mandelbrot source gets a slow ambient zoom plus a
+kick-synced pulse (zoompan with a sharp cosine^8 bump at the BPM).
 
 Layered mode: a randomized abstract base layer (cellular automaton / animated
 gradient / Sierpinski / Game-of-Life / soft fractal) is colour-cycled, blurred
@@ -10,6 +10,10 @@ and gently pulse-zoomed, then the sharp Mandelbrot is composited over it with a
 
 Credits: a fading title card (speaker name) over the first seconds, a persistent
 source line, and a periodic semi-transparent name watermark inside the art.
+
+Silhouette: if a transparent PNG of the speaker is provided, it is ghosted
+(50% opacity) over the centre periodically, so the psychedelic art bleeds
+through the speaker's shape.
 """
 import os
 import random
@@ -97,17 +101,19 @@ def _random_base_source(size, fps, rng):
 def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
                       delay=0.0, size="1920x1080", fps=30, punch=0.08,
                       credit_name=None, credit_sub=None, visual="default",
-                      base_seed=None):
+                      base_seed=None, silhouette=None):
     """Render the psychedelic video for one track.
 
     `visual` in {default, acid, mirror, kaleido, layered}.
     `base_seed` fixes the layered background choice (None = random per video).
+    `silhouette` is an optional transparent PNG of the speaker to ghost in.
     """
     dur = _duration(music_file)
     period = fps * 60.0 / max(1.0, bpm)  # frames per beat
     zexpr = f"1+{punch}*pow(max(0,cos(2*PI*on/{period:.4f})),8)"
     subt = _escape_subtitles(srt_file)
     end_pts = int(dur * fps)
+    w, h = (int(v) for v in size.split("x"))
 
     sub_filters = f"subtitles='{subt}'"
     if credit_name:
@@ -130,21 +136,27 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
     music_idx = n_video + 1
     inputs += ["-i", speech_wav, "-i", music_file]
 
+    sil_idx = None
+    if silhouette and os.path.exists(silhouette):
+        sil_idx = music_idx + 1
+        inputs += ["-loop", "1", "-i", silhouette]
+
+    # Build the visual composite, ending in a single labelled stream "VIS".
+    vf_parts = []
     if visual == "layered":
         z_bg = f"1+0.04*pow(max(0,cos(2*PI*on/{period:.4f})),8)"
-        vf = (
+        vf_parts += [
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
-            f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.4[fg];"
+            f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.4[fg]",
             f"[1:v]hue=h='6*t':s=1.6,gblur=sigma=12,zoompan=z='{z_bg}'"
-            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps}[bg];"
-            f"[bg][fg]blend=all_mode=screen,format=yuv420p[viz];"
-            f"[viz]{sub_filters}[v]"
-        )
+            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps}[bg]",
+            f"[bg][fg]blend=all_mode=screen,format=yuv420p[VIS]",
+        ]
     else:
-        vf_parts = [
+        vf_parts.append(
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
             f":d=1:s={size}:fps={fps}[zp]"
-        ]
+        )
         src = "zp"
         if visual == "acid":
             vf_parts.append(f"[{src}]hue=h='6*t':s=1.4[vz]")
@@ -160,8 +172,19 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
             if visual == "kaleido":
                 vf_parts.append(f"[{src}]hue=h='6*t':s=1.4[vz2]")
                 src = "vz2"
-        vf_parts.append(f"[{src}]{sub_filters}[v]")
-        vf = ";".join(vf_parts)
+        vf_parts.append(f"[{src}]format=yuv420p[VIS]")
+
+    final_label = "VIS"
+    if sil_idx is not None:
+        cut_h = int(h * 0.55)
+        vf_parts.append(
+            f"[{sil_idx}:v]scale=-2:{cut_h},format=rgba,colorchannelmixer=aa=0.5[cut];"
+            f"[VIS][cut]overlay=x='(W-w)/2':y='(H-h)/2':enable='lt(mod(t,25),5)'[VIS2]"
+        )
+        final_label = "VIS2"
+
+    vf_parts.append(f"[{final_label}]{sub_filters}[v]")
+    vf = ";".join(vf_parts)
 
     af = (
         f"[{speech_idx}:a]adelay={int(delay * 1000)}:all=1[sp];"

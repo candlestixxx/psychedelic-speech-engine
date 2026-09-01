@@ -20,6 +20,7 @@ import app as engine
 import bpm_tools
 import styles
 from render_beat import render_beat_video
+import silhouette
 
 SUNO_API_URL = os.environ.get("SUNO_API_URL", "http://localhost:3010/api/custom_generate")
 SUNO_TIMEOUT = int(os.environ.get("SUNO_TIMEOUT", "600"))
@@ -168,6 +169,8 @@ def main():
         print(f"Speech extraction failed: {e}")
         sys.exit(1)
 
+    sil = silhouette.fetch_silhouette(args.url, workspace_dir)
+
     print("\n=== [RENDER] Normalizing BPM + rendering beat-synced videos ===")
     for idx, (spec, music_file) in enumerate(tracks, 1):
         out_name = f"{args.output}_{idx:02d}_{spec['genre']}_{int(round(spec['bpm']))}bpm.mp4"
@@ -184,7 +187,7 @@ def main():
             render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                               delay=args.delay, size=args.size,
                               credit_name=args.credit_name, credit_sub=args.credit_sub,
-                              visual=args.visual)
+                              visual=args.visual, silhouette=sil)
             print(f"        -> {out_name}")
         except Exception as e:
             print(f"        RENDER FAILED: {e}")

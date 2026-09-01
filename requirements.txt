@@ -12,3 +12,7 @@ scipy
 requests
 python-dotenv
 yt-dlp
+
+# Speaker silhouette (AI background removal from the video thumbnail)
+rembg
+Pillow

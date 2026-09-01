@@ -35,6 +35,7 @@ import app as engine
 import auto_run as ar
 import bpm_tools
 from render_beat import render_beat_video
+import silhouette
 
 
 def slugify(text):
@@ -57,6 +58,7 @@ def process_speaker(row, out_root, args, idx, total):
     print(f"\n{'=' * 70}\n[{idx}/{total}] SPEAKER: {name}\n  url={url}\n  speaker={target}\n{'=' * 70}")
 
     try:
+        sil = silhouette.fetch_silhouette(url, ws)
         audio = engine.download_audio(url, ws, args.start, args.end)
         result = engine.transcribe_and_diarize(audio)
         stats = engine.speaker_stats(result)
@@ -107,7 +109,7 @@ def process_speaker(row, out_root, args, idx, total):
                 render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                                   delay=args.delay, size=args.size,
                                   credit_name=name, credit_sub=credit_line,
-                                  visual=args.visual)
+                                  visual=args.visual, silhouette=sil)
                 print(f"    -> {out_name}")
             except Exception as e:
                 print(f"    RENDER FAILED: {e}")
