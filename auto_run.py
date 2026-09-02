@@ -114,12 +114,15 @@ def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_s
     """Run the expensive speech pipeline exactly once; reused for all tracks."""
     print("\n=== [SPEECH] Extracting voice (once, reused for all tracks) ===")
     audio_wav = engine.download_audio(url, workspace_dir, start, end)
+    result = engine.transcribe_and_diarize(audio_wav)
+    if speaker == "auto":
+        speaker = engine.dominant_speaker(result)
+        print(f"    auto-selected speaker: {speaker}")
     if original_voice:
         print("    using the speaker's NATURAL (original) voice")
-        result = engine.transcribe_and_diarize(audio_wav)
         line_items = engine.original_voice_items(audio_wav, result, speaker, workspace_dir)
     else:
-        _srt, raw_text = engine.extract_speech_and_srt(audio_wav, speaker, workspace_dir)
+        _srt, raw_text = engine.build_srt_and_text(result, speaker, workspace_dir)
         polished = engine.polish_script(raw_text, prompt_style)
         line_items = engine.synthesize_lines(polished, voice)
     if not line_items:
@@ -130,7 +133,7 @@ def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_s
 def main():
     p = argparse.ArgumentParser(description="Psychedelic Speech Engine - batch music video generator")
     p.add_argument("--url", required=True, help="YouTube speech URL")
-    p.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
+    p.add_argument("--speaker", default="auto", help="Target speaker ID (or 'auto' to pick whoever talks the most)")
     p.add_argument("--output", default="final_master", help="Output filename prefix (no extension)")
     p.add_argument("--count", type=int, default=4, help="Number of PSYTRANCE tracks")
     p.add_argument("--style", choices=["fullon", "darkpsy", "hitech", "random"], default="random",
