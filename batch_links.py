@@ -72,14 +72,17 @@ def process_speaker(row, out_root, args, idx, total):
         if target is None:
             raise RuntimeError("No speakers detected")
 
-        srt_file, raw_text = engine.build_srt_and_text(result, target, ws)
-        if not raw_text.strip():
-            raise RuntimeError(f"No speech text for speaker {target}")
-
-        polished = engine.polish_script(raw_text, args.prompt_style)
-        line_audios = engine.synthesize_lines(polished, args.voice)
-        if not line_audios:
-            raise RuntimeError("No speech lines were synthesized.")
+        if args.original_voice:
+            print("  using the speaker's NATURAL (original) voice")
+            line_items = engine.original_voice_items(audio, result, target, ws)
+        else:
+            _srt, raw_text = engine.build_srt_and_text(result, target, ws)
+            if not raw_text.strip():
+                raise RuntimeError(f"No speech text for speaker {target}")
+            polished = engine.polish_script(raw_text, args.prompt_style)
+            line_items = engine.synthesize_lines(polished, args.voice)
+        if not line_items:
+            raise RuntimeError("No speech lines were extracted.")
 
         plan = ar.build_track_plan(args.count, style, args.bpm_min, args.bpm_max, args.others_per_4)
         print(f"  Track plan ({len(plan)} tracks):")
@@ -109,7 +112,7 @@ def process_speaker(row, out_root, args, idx, total):
                     norm_file = os.path.join(ws, f"norm_{spec['title']}.mp3")
                     detected, _ = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                     print(f"    render {j}: detected {detected:.1f} -> {bpm:.0f} BPM")
-                speech_wav, speech_srt = engine.save_rhythmic_speech(line_audios, bpm, os.path.join(ws, f"rhythmic_{j}.wav"),
+                speech_wav, speech_srt = engine.save_rhythmic_speech(line_items, bpm, os.path.join(ws, f"rhythmic_{j}.wav"),
                                                         engine.media_duration(norm_file))
                 render_beat_video(speech_wav, norm_file, speech_srt, out_name, bpm=bpm,
                                   delay=args.delay, size=args.size,
@@ -147,6 +150,8 @@ def main():
     p.add_argument("--size", default="1920x1080")
     p.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas")
+    p.add_argument("--original-voice", action="store_true",
+                   help="Use the speaker's NATURAL voice (original audio clips) instead of TTS re-voicing")
     p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default")
     p.add_argument("--upload", action="store_true", help="Upload rendered videos to the authorized YouTube channel")
     p.add_argument("--privacy", choices=["private", "unlisted", "public"], default="unlisted")

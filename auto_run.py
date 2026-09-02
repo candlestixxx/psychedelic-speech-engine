@@ -110,16 +110,21 @@ def generate_suno_track(spec):
     raise RuntimeError("Suno returned no audio_url")
 
 
-def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_style):
+def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_style, original_voice=False):
     """Run the expensive speech pipeline exactly once; reused for all tracks."""
     print("\n=== [SPEECH] Extracting voice (once, reused for all tracks) ===")
     audio_wav = engine.download_audio(url, workspace_dir, start, end)
-    srt_file, raw_text = engine.extract_speech_and_srt(audio_wav, speaker, workspace_dir)
-    polished = engine.polish_script(raw_text, prompt_style)
-    line_audios = engine.synthesize_lines(polished, voice)
-    if not line_audios:
-        raise RuntimeError("No speech lines were synthesized.")
-    return line_audios, srt_file
+    if original_voice:
+        print("    using the speaker's NATURAL (original) voice")
+        result = engine.transcribe_and_diarize(audio_wav)
+        line_items = engine.original_voice_items(audio_wav, result, speaker, workspace_dir)
+    else:
+        _srt, raw_text = engine.extract_speech_and_srt(audio_wav, speaker, workspace_dir)
+        polished = engine.polish_script(raw_text, prompt_style)
+        line_items = engine.synthesize_lines(polished, voice)
+    if not line_items:
+        raise RuntimeError("No speech lines were extracted.")
+    return line_items
 
 
 def main():
@@ -141,6 +146,8 @@ def main():
     p.add_argument("--size", default="1920x1080", help="Video size (e.g. 1280x720 for faster renders)")
     p.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
+    p.add_argument("--original-voice", action="store_true",
+                   help="Use the speaker's NATURAL voice (original audio clips) instead of TTS re-voicing")
     p.add_argument("--credit-name", default=None, help="Speaker name to show in a fading title card (e.g. 'Dr. Albert Hofmann')")
     p.add_argument("--credit-sub", default=None, help="Intro description line (e.g. 'High Times interview · 1994 · on LSD and mysticism')")
     p.add_argument("--channel", default="PsySpeech Engine", help="Channel name shown in the intro")
@@ -168,7 +175,7 @@ def main():
     # Extract speech FIRST: the YouTube download is cookie-sensitive, so do it
     # immediately (before Suno's slow generation) to avoid cookie rotation.
     try:
-        line_audios, srt_file = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style)
+        line_items = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style, args.original_voice)
     except Exception as e:
         print(f"Speech extraction failed: {e}")
         sys.exit(1)
@@ -205,7 +212,7 @@ def main():
                 norm_file = f"norm_{spec['title']}.mp3"
                 detected, _stretched = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                 print(f"[{idx}/{len(tracks)}] {spec['title']}: detected {detected:.1f} -> stretched to {bpm:.0f} BPM")
-            speech_wav, speech_srt = engine.save_rhythmic_speech(line_audios, bpm,
+            speech_wav, speech_srt = engine.save_rhythmic_speech(line_items, bpm,
                                                      os.path.join(workspace_dir, f"rhythmic_{idx}.wav"),
                                                      engine.media_duration(norm_file))
             render_beat_video(speech_wav, norm_file, speech_srt, out_name, bpm=bpm,
