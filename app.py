@@ -258,53 +258,71 @@ def synthesize_audio(text, workspace_dir, voice_id):
     return output_speech_wav
 
 
+def _srt_ts(seconds):
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
+    return f"{h:02d}:{m:02d}:{s:06.3f}".replace(".", ",")
+
+
 def synthesize_lines(text, voice_id):
-    """Synthesize each line separately; returns a list of float32 mono arrays."""
+    """Synthesize each line separately; returns list of (line_text, float32 audio)."""
     from kokoro import KPipeline
     import numpy as np
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     pipeline = KPipeline(lang_code='a', device=device)
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    audios = []
+    items = []
     for line in lines:
         chunks = []
         for _gs, _ps, audio in pipeline(line, voice=voice_id, speed=1.0, split_pattern=r'\n+'):
             if audio is not None:
                 chunks.append(audio)
         if chunks:
-            audios.append(np.concatenate(
+            arr = np.concatenate(
                 [a.cpu().numpy() if hasattr(a, "cpu") else np.asarray(a) for a in chunks]
-            ))
-    return audios
+            )
+            items.append((line, arr))
+    return items
 
 
-def build_rhythmic_speech(line_audios, bpm, duration, sr=24000):
-    """Spread each line evenly across `duration`, snapping starts to beats."""
+def build_rhythmic_speech(line_items, bpm, duration, sr=24000):
+    """Spread each line evenly across `duration`, snapping starts to beats.
+
+    Returns (audio_array, placements) where placements = [(start_s, end_s, text)].
+    """
     import numpy as np
     beat = sr * 60.0 / max(1.0, bpm)
-    n = len(line_audios)
+    n = len(line_items)
     total = int(duration * sr)
     if n == 0:
-        return np.zeros(max(total, sr), dtype=np.float32)
+        return np.zeros(max(total, sr), dtype=np.float32), []
     out = np.zeros(total, dtype=np.float32)
-    for i, a in enumerate(line_audios):
+    placements = []
+    for i, (text, a) in enumerate(line_items):
         t = duration * (i + 0.5) / n
         start = int(round(t * sr / beat) * beat)
         start = max(0, min(start, total - len(a)))
         end = min(start + len(a), total)
         out[start:end] += a[:end - start]
+        placements.append((start / sr, end / sr, text))
     peak = float(np.max(np.abs(out))) if out.size else 0.0
     if peak > 0:
         out = out * (0.9 / peak)
-    return out
+    return out, placements
 
 
-def save_rhythmic_speech(line_audios, bpm, out_path, duration, sr=24000):
+def save_rhythmic_speech(line_items, bpm, out_path, duration, sr=24000):
+    """Write the rhythmic speech wav + a matching SRT; returns (wav_path, srt_path)."""
     import soundfile as sf
-    arr = build_rhythmic_speech(line_audios, bpm, duration, sr=sr)
+    arr, placements = build_rhythmic_speech(line_items, bpm, duration, sr=sr)
     sf.write(out_path, arr, sr)
-    return out_path
+    srt_path = out_path + ".srt"
+    with open(srt_path, "w", encoding="utf-8") as f:
+        for i, (s, e, text) in enumerate(placements, 1):
+            f.write(f"{i}\n{_srt_ts(s)} --> {_srt_ts(e)}\n{text}\n\n")
+    return out_path, srt_path
 
 
 def media_duration(path):

@@ -109,11 +109,13 @@ def process_speaker(row, out_root, args, idx, total):
                     norm_file = os.path.join(ws, f"norm_{spec['title']}.mp3")
                     detected, _ = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                     print(f"    render {j}: detected {detected:.1f} -> {bpm:.0f} BPM")
-                speech_wav = engine.save_rhythmic_speech(line_audios, bpm, os.path.join(ws, f"rhythmic_{j}.wav"),
+                speech_wav, speech_srt = engine.save_rhythmic_speech(line_audios, bpm, os.path.join(ws, f"rhythmic_{j}.wav"),
                                                         engine.media_duration(norm_file))
-                render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
+                render_beat_video(speech_wav, norm_file, speech_srt, out_name, bpm=bpm,
                                   delay=args.delay, size=args.size,
                                   credit_name=name, credit_sub=credit_line,
+                                  channel_name="PsySpeech Engine",
+                                  genre_label=f"{spec['genre']} {int(round(spec['bpm']))} BPM",
                                   visual=args.visual, silhouette=sil, base_images=base_images,
                                   base_seed=j)
                 print(f"    -> {out_name}")

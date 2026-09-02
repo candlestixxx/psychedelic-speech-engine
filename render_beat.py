@@ -42,21 +42,16 @@ def _ass_time(seconds):
     return f"{h}:{m:02d}:{s:02d}.{c:02d}"
 
 
-def _write_credits_ass(name, sub_line, duration_sec, path):
-    """ASS overlay: fading title, persistent credit line, periodic name tag."""
+def _write_credits_ass(name, sub_line, duration_sec, path, channel_name="PsySpeech Engine", genre_label=None):
+    """ASS overlay: movie-style intro (channel -> name -> description) + persistent lower-third."""
     end = _ass_time(duration_sec)
     name = (name or "").replace("\\", "").replace("{", "(").replace("}", ")")
     sub_line = (sub_line or "").replace("\\", "").replace("{", "(").replace("}", ")")
-
-    tag_events = ""
-    if name:
-        t = 15.0
-        while t < duration_sec - 4:
-            tag_events += (
-                f"Dialogue: 0, {_ass_time(t)}, {_ass_time(t + 3)}, Tag, , 0, 0, 0, , "
-                f"{{\\fad(400,400)}}{name}\n"
-            )
-            t += 20.0
+    channel = (channel_name or "").replace("\\", "").replace("{", "(").replace("}", ")")
+    lower = name
+    if genre_label:
+        lower += f"  ·  {genre_label}"
+    lower = lower.replace("\\", "").replace("{", "(").replace("}", ")")
 
     ass = f"""[Script Info]
 ScriptType: v4.00+
@@ -66,15 +61,18 @@ WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Title, Arial, 96, &H00FFFFFF, &H000000FF, &H00000000, &H78000000, 1, 0, 0, 0, 100, 100, 0, 0, 1, 3, 0, 5, 40, 40, 40, 1
-Style: Credit, Arial, 26, &H00FFFFFF, &H000000FF, &H00000000, &H78000000, 0, 0, 0, 0, 100, 100, 0, 0, 1, 2, 0, 2, 40, 40, 30, 1
-Style: Tag, Arial, 40, &H50FFFFFF, &H000000FF, &H00000000, &H78000000, 1, 0, 0, 0, 100, 100, 0, 0, 1, 2, 0, 8, 40, 40, 40, 1
+Style: Channel, Arial, 52, &H00FFFFFF, &H000000FF, &H00000000, &H78000000, 1, 0, 0, 0, 100, 100, 0, 0, 1, 3, 0, 5, 40, 40, 40, 1
+Style: Title, Arial, 92, &H00FFFFFF, &H000000FF, &H00000000, &H78000000, 1, 0, 0, 0, 100, 100, 0, 0, 1, 3, 0, 5, 40, 40, 40, 1
+Style: Sub, Arial, 34, &H00FFFFFF, &H000000FF, &H00000000, &H78000000, 0, 0, 0, 0, 100, 100, 0, 0, 1, 2, 0, 5, 40, 40, 40, 1
+Style: Credit, Arial, 24, &H90FFFFFF, &H000000FF, &H00000000, &H78000000, 0, 0, 0, 0, 100, 100, 0, 0, 1, 2, 0, 2, 40, 40, 30, 1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0, 0:00:00.00, 0:00:05.50, Title, , 0, 0, 0, , {{\\fad(250,250)}}{name}
-Dialogue: 0, 0:00:00.00, {end}, Credit, , 0, 0, 0, , {sub_line}
-{tag_events}"""
+Dialogue: 0, 0:00:00.00, 0:00:03.00, Channel, , 0, 0, 0, , {{\\fad(300,300)}}{channel}
+Dialogue: 0, 0:00:03.00, 0:00:06.00, Title, , 0, 0, 0, , {{\\fad(250,250)}}{name}
+Dialogue: 0, 0:00:06.00, 0:00:09.00, Sub, , 0, 0, 0, , {{\\fad(250,250)}}{sub_line}
+Dialogue: 0, 0:00:09.00, {end}, Credit, , 0, 0, 0, , {lower}
+"""
     with open(path, "w", encoding="utf-8") as f:
         f.write(ass)
     return path
@@ -138,7 +136,8 @@ def find_base_images(directory):
 def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
                       delay=0.0, size="1920x1080", fps=30, punch=0.10,
                       credit_name=None, credit_sub=None, visual="default",
-                      base_seed=None, silhouette=None, base_images=None):
+                      base_seed=None, silhouette=None, base_images=None,
+                      channel_name="PsySpeech Engine", genre_label=None):
     """Render the psychedelic video for one track.
 
     `visual` in {default, acid, mirror, kaleido, layered}.
@@ -155,7 +154,8 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
     sub_filters = f"subtitles='{subt}'"
     if credit_name:
         credits_ass = os.path.abspath(output) + ".credits.ass"
-        _write_credits_ass(credit_name, credit_sub, dur, credits_ass)
+        _write_credits_ass(credit_name, credit_sub, dur, credits_ass,
+                           channel_name=channel_name, genre_label=genre_label)
         sub_filters += f",subtitles='{_escape_subtitles(credits_ass)}'"
 
     inputs = [

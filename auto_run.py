@@ -142,7 +142,8 @@ def main():
     p.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     p.add_argument("--credit-name", default=None, help="Speaker name to show in a fading title card (e.g. 'Dr. Albert Hofmann')")
-    p.add_argument("--credit-sub", default=None, help="Persistent source/credit line (e.g. 'Interview excerpt - AI re-voicing')")
+    p.add_argument("--credit-sub", default=None, help="Intro description line (e.g. 'High Times interview · 1994 · on LSD and mysticism')")
+    p.add_argument("--channel", default="PsySpeech Engine", help="Channel name shown in the intro")
     p.add_argument("--visual", choices=["default", "acid", "mirror", "kaleido", "layered"], default="default",
                    help="Visual style layer (acid = hue cycling, mirror/kaleido = kaleidoscope, layered = psychedelic base + Mandelbrot)")
     p.add_argument("--upload", action="store_true", help="Upload rendered videos to the authorized YouTube channel")
@@ -204,12 +205,14 @@ def main():
                 norm_file = f"norm_{spec['title']}.mp3"
                 detected, _stretched = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                 print(f"[{idx}/{len(tracks)}] {spec['title']}: detected {detected:.1f} -> stretched to {bpm:.0f} BPM")
-            speech_wav = engine.save_rhythmic_speech(line_audios, bpm,
+            speech_wav, speech_srt = engine.save_rhythmic_speech(line_audios, bpm,
                                                      os.path.join(workspace_dir, f"rhythmic_{idx}.wav"),
                                                      engine.media_duration(norm_file))
-            render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
+            render_beat_video(speech_wav, norm_file, speech_srt, out_name, bpm=bpm,
                               delay=args.delay, size=args.size,
                               credit_name=args.credit_name, credit_sub=args.credit_sub,
+                              channel_name=args.channel,
+                              genre_label=f"{spec['genre']} {int(round(spec['bpm']))} BPM",
                               visual=args.visual, silhouette=sil, base_images=base_images,
                               base_seed=idx)
             print(f"        -> {out_name}")
