@@ -98,6 +98,20 @@ def _random_base_source(size, fps, rng):
     return f"mandelbrot=size={size}:rate={fps}:start_scale=2.5:end_scale=0.15:maxiter=150"
 
 
+def _random_geo_source(size, fps, rng):
+    """Return a geometric procedural layer (shapes/patterns), distinct from base."""
+    seed = rng.randint(0, 2 ** 31)
+    kind = rng.randrange(4)
+    if kind == 0:
+        return f"cellauto=size={size}:rate={fps}:rule={rng.choice([30, 45, 73, 90, 150, 184])}:seed={seed}"
+    if kind == 1:
+        return f"sierpinski=size={size}:rate={fps}:type=1:jump={rng.choice([1, 2, 5])}:seed={seed}"
+    if kind == 2:
+        color = rng.choice(["0xFF00FF", "0x00FFFF", "0x00FF00", "0xFF0000", "0xFFFF00"])
+        return f"life=size={size}:rate={fps}:ratio=0.08:seed={seed}:life_color={color}:death_color=0x000000"
+    return f"gradients=size={size}:rate={fps}:type={rng.choice(['radial', 'circular', 'spiral', 'square'])}:seed={seed}"
+
+
 def find_base_images(directory):
     """Return psychedelic base-art image paths in a directory.
 
@@ -156,7 +170,8 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
             base_is_image = True
         else:
             inputs += ["-f", "lavfi", "-i", _random_base_source(size, fps, rng)]
-        n_video = 2
+        inputs += ["-f", "lavfi", "-i", _random_geo_source(size, fps, rng)]
+        n_video = 3
 
     speech_idx = n_video
     music_idx = n_video + 1
@@ -170,24 +185,33 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
     # Build the visual composite, ending in a single labelled stream "VIS".
     vf_parts = []
     if visual == "layered":
-        z_bg = f"1+0.04*pow(max(0,cos(2*PI*on/{period:.4f})),8)"
+        z_slow = f"(1+0.35*on/{end_pts})*(1+0.05*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
+        z_img = f"(1+0.4*on/{end_pts})*(1+0.05*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
         if base_is_image:
-            z_img = f"(1+0.4*on/{end_pts})*(1+0.05*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
             base_filter = (
                 f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=yuv420p,"
                 f"zoompan=z='{z_img}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
-                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.3[bg]"
+                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.4,eq=brightness=0.7[base]"
             )
         else:
             base_filter = (
-                f"[1:v]hue=h='6*t':s=1.6,gblur=sigma=12,zoompan=z='{z_bg}'"
-                f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps}[bg]"
+                f"[1:v]hue=h='6*t':s=1.6,gblur=sigma=10,zoompan=z='{z_slow}'"
+                f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=brightness=0.7[base]"
             )
-        vf_parts += [
+        geo_filter = (
+            f"[2:v]hue=h='-5*t':s=1.7,zoompan=z='{z_slow}'"
+            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=contrast=1.3:brightness=0.1[geo]"
+        )
+        fg_filter = (
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
-            f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.4[fg]",
+            f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.5,eq=contrast=1.4:saturation=1.6:brightness=0.05[fg]"
+        )
+        vf_parts += [
+            fg_filter,
             base_filter,
-            f"[bg][fg]blend=all_mode=screen,format=yuv420p,eq=brightness='1+0.18*pow(max(0,cos(2*PI*n/{period:.4f})),6)':saturation=1.15[VIS]",
+            geo_filter,
+            f"[base][geo]blend=all_mode=screen,format=yuv420p[bg2]",
+            f"[bg2][fg]blend=all_mode=screen,format=yuv420p,eq=brightness='1+0.2*pow(max(0,cos(2*PI*n/{period:.4f})),6)':saturation=1.2[VIS]",
         ]
     else:
         vf_parts.append(

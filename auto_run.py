@@ -170,7 +170,7 @@ def main():
         print(f"Speech extraction failed: {e}")
         sys.exit(1)
 
-    sil = silhouette.fetch_silhouette(args.url, workspace_dir)
+    sil = None  # silhouette ghost disabled (art already contains the speaker)
     base_images = find_base_images(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
 
     print("\n=== [MUSIC] Generating tracks via Suno ===")
@@ -203,7 +203,8 @@ def main():
                 detected, _stretched = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                 print(f"[{idx}/{len(tracks)}] {spec['title']}: detected {detected:.1f} -> stretched to {bpm:.0f} BPM")
             speech_wav = engine.save_rhythmic_speech(line_audios, bpm,
-                                                     os.path.join(workspace_dir, f"rhythmic_{idx}.wav"))
+                                                     os.path.join(workspace_dir, f"rhythmic_{idx}.wav"),
+                                                     engine.media_duration(norm_file))
             render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                               delay=args.delay, size=args.size,
                               credit_name=args.credit_name, credit_sub=args.credit_sub,

@@ -198,11 +198,12 @@ def polish_script(raw_text, prompt_style):
     }
 
     prompt = (
-        "You are editing a spoken-word piece. From the transcript below, extract the "
-        "most profound, quotable moments — the speaker's KEY points — VERBATIM. Keep "
-        "their exact words; only remove filler (um, uh, you know, stutters). Break the "
-        "result into short standalone lines (one complete thought per line), separated "
-        "by newlines. Do NOT paraphrase, summarize, or add any words. "
+        "You are editing a spoken-word piece. From the transcript below, select the "
+        "speaker's most insightful, quotable statements VERBATIM — their exact words, "
+        "removing only filler (um, uh, you know, stutters). Choose enough material for "
+        "a 30-60 second spoken-word segment: roughly 15-25 short lines, each one "
+        "complete thought, covering the range of the speaker's key ideas. Do NOT "
+        "paraphrase, summarize, or add words. "
         f"Tone/narrative flavor: {prompt_style}. Output ONLY the quotes, one per line:\n\n"
         f"{raw_text}"
     )
@@ -278,29 +279,40 @@ def synthesize_lines(text, voice_id):
     return audios
 
 
-def build_rhythmic_speech(line_audios, bpm, sr=24000, gap_frac=0.25):
-    """Place each line so its start lands on a beat; returns one float32 array."""
+def build_rhythmic_speech(line_audios, bpm, duration, sr=24000):
+    """Spread each line evenly across `duration`, snapping starts to beats."""
     import numpy as np
-    beat_samples = int(sr * 60.0 / max(1.0, bpm))
-    gap = int(beat_samples * gap_frac)
-    placements = []
-    t = gap
-    for a in line_audios:
-        start = int(np.ceil(t / beat_samples) * beat_samples)
-        placements.append((start, a))
-        t = start + len(a) + gap
-    total = max(placements[-1][0] + len(placements[-1][1]) + gap, sr)
+    beat = sr * 60.0 / max(1.0, bpm)
+    n = len(line_audios)
+    total = int(duration * sr)
+    if n == 0:
+        return np.zeros(max(total, sr), dtype=np.float32)
     out = np.zeros(total, dtype=np.float32)
-    for start, a in placements:
-        out[start:start + len(a)] += a
+    for i, a in enumerate(line_audios):
+        t = duration * (i + 0.5) / n
+        start = int(round(t * sr / beat) * beat)
+        start = max(0, min(start, total - len(a)))
+        end = min(start + len(a), total)
+        out[start:end] += a[:end - start]
+    peak = float(np.max(np.abs(out))) if out.size else 0.0
+    if peak > 0:
+        out = out * (0.9 / peak)
     return out
 
 
-def save_rhythmic_speech(line_audios, bpm, out_path, sr=24000):
+def save_rhythmic_speech(line_audios, bpm, out_path, duration, sr=24000):
     import soundfile as sf
-    arr = build_rhythmic_speech(line_audios, bpm, sr=sr)
+    arr = build_rhythmic_speech(line_audios, bpm, duration, sr=sr)
     sf.write(out_path, arr, sr)
     return out_path
+
+
+def media_duration(path):
+    import subprocess
+    out = subprocess.check_output(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=noprint_wrappers=1:nokey=1", path], text=True).strip()
+    return float(out)
 
 
 def _ffmpeg_subtitle_path(path):

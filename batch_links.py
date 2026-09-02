@@ -58,7 +58,7 @@ def process_speaker(row, out_root, args, idx, total):
     print(f"\n{'=' * 70}\n[{idx}/{total}] SPEAKER: {name}\n  url={url}\n  speaker={target}\n{'=' * 70}")
 
     try:
-        sil = silhouette.fetch_silhouette(url, ws)
+        sil = None  # silhouette ghost disabled (art already contains the speaker)
         base_images = find_base_images(os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"))
         audio = engine.download_audio(url, ws, args.start, args.end)
         result = engine.transcribe_and_diarize(audio)
@@ -109,7 +109,8 @@ def process_speaker(row, out_root, args, idx, total):
                     norm_file = os.path.join(ws, f"norm_{spec['title']}.mp3")
                     detected, _ = bpm_tools.normalize_bpm(music_file, norm_file, spec["bpm"])
                     print(f"    render {j}: detected {detected:.1f} -> {bpm:.0f} BPM")
-                speech_wav = engine.save_rhythmic_speech(line_audios, bpm, os.path.join(ws, f"rhythmic_{j}.wav"))
+                speech_wav = engine.save_rhythmic_speech(line_audios, bpm, os.path.join(ws, f"rhythmic_{j}.wav"),
+                                                        engine.media_duration(norm_file))
                 render_beat_video(speech_wav, norm_file, srt_file, out_name, bpm=bpm,
                                   delay=args.delay, size=args.size,
                                   credit_name=name, credit_sub=credit_line,
