@@ -73,9 +73,14 @@
 - GPU: GTX 1080 Ti (Pascal, sm_61) → `float32` compute. Whisper `batch_size=4`
   (16 OOMs the 11 GB card).
 - Suno API: separate `../suno-api` Node app on **port 3010**. Cookie is set and
-  verified (account `resurrectingbeats`, ~9980 monthly credits left). Restart with
-  `cd ../suno-api && npx next dev -p 3010`. 1 generation = 2 songs = 10 credits;
+  verified (account `resurrectingbeats`, ~9790 monthly credits left). Restart with
+  `cd ../suno-api && npx next dev -p 3010`. 1 generation = 2 songs = 20 credits;
   `auto_run` keeps only the first `audio_url`.
+- **hCaptcha auto-solve**: `TWOCAPTCHA_KEY` (2Captcha) is set in `../suno-api/.env`.
+  Suno flags the account for a captcha every few API generations; the suno-api
+  auto-solves it (headless browser + 2Captcha). Replenish the 2Captcha balance at
+  [2captcha.com](https://2captcha.com) when it drops below ~$0.50 (a $3 top-up
+  covers ~hundreds of solves).
 - **Critical suno-api patch (LOCAL only, not pushed upstream)**: `src/lib/SunoApi.ts`
   was fixed to read `media_urls` (m4a) because Suno now returns
   `audio_url: ".../api/forbidden"`. Commit `642e49a` in the suno-api repo. If

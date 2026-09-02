@@ -29,7 +29,8 @@
 
 1. Review the test video, then run a full batch:
    `batch_links.py links.csv --count 8 --visual layered --upload --privacy unlisted`.
-2. Watch Suno hCaptcha → add `TWOCAPTCHA_KEY` to `suno-api/.env`.
+2. hCaptcha is auto-solved via 2Captcha (`TWOCAPTCHA_KEY` set). Top up the
+   2Captcha balance (2captcha.com) when it drops below ~$0.50.
 3. Optionally: silhouette override column in `links.csv`, or disable the
    silhouette ghost for a pure art+Mandelbrot look.
 
