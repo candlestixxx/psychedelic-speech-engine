@@ -46,13 +46,15 @@ def build_track_spec(kind, genre_key=None, style_key=None, bpm_min=144.0, bpm_ma
         if hi < lo:
             hi = lo
         bpm = random.uniform(lo, hi)
-        tags = _cap_tags(f"{styles.SIGNATURE_TAGS}, {st['tags']}, {int(round(bpm))} BPM")
+        twist = random.choice(styles.CREATIVE_TWISTS)
+        tags = _cap_tags(f"{styles.SIGNATURE_TAGS}, {st['tags']}, {twist}, {int(round(bpm))} BPM")
         title = f"psy_{style_key}_{int(round(bpm))}bpm"
         return {"kind": "psytrance", "genre": style_key, "bpm": bpm, "tags": tags, "title": title}
 
     g = styles.OTHER_GENRES[genre_key]
     bpm = random.uniform(g["bpm"][0], g["bpm"][1])
-    tags = _cap_tags(f"{styles.SIGNATURE_TAGS}, {g['tags']}, {int(round(bpm))} BPM")
+    twist = random.choice(styles.CREATIVE_TWISTS)
+    tags = _cap_tags(f"{styles.SIGNATURE_TAGS}, {g['tags']}, {twist}, {int(round(bpm))} BPM")
     title = f"{genre_key}_{int(round(bpm))}bpm"
     return {"kind": "other", "genre": genre_key, "bpm": bpm, "tags": tags, "title": title}
 

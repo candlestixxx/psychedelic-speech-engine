@@ -68,3 +68,15 @@ OTHER_GENRES = {
         "tags": "detroit techno, detroit house, deep, soulful chords, hypnotic",
     },
 }
+
+# Randomized "creative twist" added to every track's style for variety.
+CREATIVE_TWISTS = [
+    "mind-bending key changes",
+    "polyrhythmic layers",
+    "hypnotic acid lines",
+    "modular synth textures",
+    "cinematic breakdown",
+    "glitchy transitions",
+    "deep evolving pads",
+    "trippy arpeggios",
+]

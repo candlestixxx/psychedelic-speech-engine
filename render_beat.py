@@ -83,7 +83,7 @@ Dialogue: 0, 0:00:00.00, {end}, Credit, , 0, 0, 0, , {sub_line}
 def _random_base_source(size, fps, rng):
     """Return a lavfi source string for a randomized trippy background layer."""
     seed = rng.randint(0, 2 ** 31)
-    kind = rng.randrange(6)
+    kind = rng.randrange(7)
     if kind in (0, 1):
         rule = rng.choice([110, 30, 45, 73, 90, 150, 184])
         return f"cellauto=size={size}:rate={fps}:rule={rule}:seed={seed}"
@@ -95,6 +95,10 @@ def _random_base_source(size, fps, rng):
     if kind == 4:
         color = rng.choice(["0xFF00FF", "0x00FFFF", "0x00FF00", "0xFF0000", "0xFFFF00"])
         return f"life=size={size}:rate={fps}:ratio=0.06:seed={seed}:life_color={color}:death_color=0x000000"
+    if kind == 5:
+        # flowing psychedelic plasma (animated via time T)
+        return (f"nullsrc=size={size}:rate={fps},"
+                f"geq=r='128+127*sin(X/40+T*2)':g='128+127*sin(Y/40-T*3)':b='128+127*sin((X+Y)/50+T*2)'")
     return f"mandelbrot=size={size}:rate={fps}:start_scale=2.5:end_scale=0.15:maxiter=150"
 
 
@@ -190,6 +194,7 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
         if base_is_image:
             base_filter = (
                 f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=yuv420p,"
+                f"rotate=a='0.03*t':ow=iw:oh=ih,"
                 f"zoompan=z='{z_img}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
                 f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.4,eq=brightness=0.7[base]"
             )
