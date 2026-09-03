@@ -67,11 +67,10 @@ def upload_track(path, speaker_name, genre, bpm, credit_line, privacy="unlisted"
     title = f"{speaker_name} — {genre} {int(round(bpm))} BPM"
     description = (
         f"{credit_line}\n\n"
-        "Psychedelic spoken-word music video — AI re-voicing · music by Suno\n\n"
-        "#psytrance #mandelbrot #psychedelic #spokenword #aimusic"
+        "#psychedelic #spokenword #consciousness #psytrance"
     )
-    tags = [speaker_name, genre, "psytrance", "mandelbrot", "psychedelic",
-            "spoken word", "AI music"]
+    tags = [speaker_name, genre, "psytrance", "psychedelic", "spoken word",
+            "consciousness"]
     return upload_video(path, title, description, tags, privacy)
 
 
