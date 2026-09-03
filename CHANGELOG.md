@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0] - 2024-05-28
+### Added
+- Implemented **Web GUI**: Created `ui.py` leveraging Gradio to expose all pipeline arguments (TTS voice, LLM prompt styles, Subtitle styles) via an interactive local web application.
+- Added `requirements.txt` to lock down core Python dependencies.
+
+### Fixed
+- Stabilized FFmpeg subtitle parsing on cross-platform setups by sanitizing absolute path strings (converting backslashes to forward slashes).
+
 ## [1.2.0] - 2024-05-28
 ### Added
 - Implemented **Dynamic Prompt Styles**: Added `--prompt-style` parameter to natively instruct the DeepSeek LLM to generate thematic stanzas (e.g., 'Alan Watts philosophical' or 'Aggressive Cyberpunk').

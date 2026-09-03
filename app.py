@@ -148,6 +148,9 @@ def synthesize_audio(text, workspace_dir, voice_id):
 def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, subtitle_style):
     print(f"Rendering final video to {output_file}...")
 
+    # Sanitize path for FFmpeg cross-platform compatibility (especially Windows backslashes)
+    safe_srt_file = srt_file.replace('\\', '/')
+
     # Command to generate mandelbrot, add delayed speech and music, and burn subtitles
     cmd = [
         "ffmpeg", "-y",
@@ -155,7 +158,7 @@ def render_video(speech_file, music_file, srt_file, output_file, delay, video_fi
         "-i", speech_file,
         "-i", music_file,
         "-filter_complex",
-        f"[1:a]adelay={int(delay*1000)}|{int(delay*1000)}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; [0:v]subtitles={srt_file}:force_style='{subtitle_style}'[v]",
+        f"[1:a]adelay={int(delay*1000)}|{int(delay*1000)}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; [0:v]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v]",
         "-map", "[v]",
         "-map", "[a]",
         "-c:v", "libx264",

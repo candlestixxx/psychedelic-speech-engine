@@ -1,0 +1,8 @@
+yt-dlp
+whisperx
+requests
+python-dotenv
+kokoro
+soundfile
+numpy
+gradio
