@@ -325,16 +325,19 @@ def save_rhythmic_speech(line_items, bpm, out_path, duration, sr=24000):
     return out_path, srt_path
 
 
-def original_voice_items(audio_file, result, target_speaker, workspace_dir, max_clips=25):
+def original_voice_items(audio_file, result, target_speaker, workspace_dir, max_clips=25, min_dur=1.5, max_dur=15.0):
     """Slice the speaker's ORIGINAL audio segments; returns [(text, float32 audio)].
 
     Uses the real interview audio (natural voice) rather than TTS. Segments are
-    cut with ffmpeg at the diarized timestamps, resampled to 24 kHz mono.
+    filtered to clean short-ish clips (no run-ons, no tiny fragments), cut with
+    ffmpeg at the diarized timestamps, resampled to 24 kHz mono.
     """
     import numpy as np
     import soundfile as sf
 
-    segs = [s for s in result.get("segments", []) if s.get("speaker") == target_speaker]
+    segs = [s for s in result.get("segments", [])
+            if s.get("speaker") == target_speaker
+            and min_dur <= (s["end"] - s["start"]) <= max_dur]
     if not segs:
         return []
     if len(segs) > max_clips:
