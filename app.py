@@ -354,6 +354,48 @@ def original_voice_items(audio_file, result, target_speaker, workspace_dir, max_
     return items
 
 
+def _speech_cache_dir(url, variant=""):
+    import re
+    m = re.search(r"(?:v=|youtu\.be/|/shorts/|/live/)([A-Za-z0-9_-]{11})", url)
+    if not m:
+        return None
+    return os.path.join("speech_cache", m.group(1) + (("__" + variant) if variant else ""))
+
+
+def save_speech_cache(url, line_items, variant="", sr=24000):
+    """Persist extracted speech clips so future runs skip transcription."""
+    import json
+    import soundfile as sf
+    d = _speech_cache_dir(url, variant)
+    if not d:
+        return None
+    os.makedirs(d, exist_ok=True)
+    manifest = []
+    for i, (text, arr) in enumerate(line_items):
+        wav = f"clip_{i:03d}.wav"
+        sf.write(os.path.join(d, wav), arr, sr)
+        manifest.append({"text": text, "wav": wav})
+    with open(os.path.join(d, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f)
+    return d
+
+
+def load_speech_cache(url, variant="", sr=24000):
+    """Load cached speech clips if present; returns [(text, float32 audio)] or None."""
+    import json
+    import soundfile as sf
+    import numpy as np
+    d = _speech_cache_dir(url, variant)
+    if not d or not os.path.exists(os.path.join(d, "manifest.json")):
+        return None
+    manifest = json.load(open(os.path.join(d, "manifest.json"), encoding="utf-8"))
+    items = []
+    for m in manifest:
+        a, _sr = sf.read(os.path.join(d, m["wav"]))
+        items.append((m["text"], a.astype(np.float32)))
+    return items
+
+
 def media_duration(path):
     import subprocess
     out = subprocess.check_output(

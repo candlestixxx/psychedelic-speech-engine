@@ -25,3 +25,4 @@ assets/
 # YouTube OAuth refresh token (password-like)
 youtube_token.json
 smoke.log
+speech_cache/

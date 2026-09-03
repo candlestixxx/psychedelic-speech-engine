@@ -110,9 +110,15 @@ def generate_suno_track(spec):
     raise RuntimeError("Suno returned no audio_url")
 
 
-def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_style, original_voice=False):
+def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_style, original_voice=False, fresh=False):
     """Run the expensive speech pipeline exactly once; reused for all tracks."""
     print("\n=== [SPEECH] Extracting voice (once, reused for all tracks) ===")
+    variant = "orig" if original_voice else f"tts_{voice}"
+    if not fresh:
+        cached = engine.load_speech_cache(url, variant)
+        if cached:
+            print(f"    loaded {len(cached)} cached speech clips (skip transcription)")
+            return cached
     audio_wav = engine.download_audio(url, workspace_dir, start, end)
     result = engine.transcribe_and_diarize(audio_wav)
     if speaker == "auto":
@@ -127,6 +133,7 @@ def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_s
         line_items = engine.synthesize_lines(polished, voice)
     if not line_items:
         raise RuntimeError("No speech lines were extracted.")
+    engine.save_speech_cache(url, line_items, variant)
     return line_items
 
 
@@ -151,6 +158,7 @@ def main():
     p.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     p.add_argument("--original-voice", action="store_true",
                    help="Use the speaker's NATURAL voice (original audio clips) instead of TTS re-voicing")
+    p.add_argument("--fresh", action="store_true", help="Ignore cached speech and re-transcribe")
     p.add_argument("--credit-name", default=None, help="Speaker name to show in a fading title card (e.g. 'Dr. Albert Hofmann')")
     p.add_argument("--credit-sub", default=None, help="Intro description line (e.g. 'High Times interview · 1994 · on LSD and mysticism')")
     p.add_argument("--channel", default="PsySpeech Engine", help="Channel name shown in the intro")
@@ -178,7 +186,7 @@ def main():
     # Extract speech FIRST: the YouTube download is cookie-sensitive, so do it
     # immediately (before Suno's slow generation) to avoid cookie rotation.
     try:
-        line_items = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style, args.original_voice)
+        line_items = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style, args.original_voice, args.fresh)
     except Exception as e:
         print(f"Speech extraction failed: {e}")
         sys.exit(1)
