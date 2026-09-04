@@ -2,7 +2,7 @@ import gradio as gr
 import subprocess
 import os
 
-def generate_video(youtube_url, speaker_id, suno_tags, prompt_style, tts_voice, subtitle_style, video_filter):
+def generate_video(youtube_url, speaker_id, suno_tags, prompt_style, tts_voice, subtitle_style, visual_mode):
     """
     Executes the auto_run.py script passing the UI parameters.
     Yields output lines dynamically so the user can see progress in the UI.
@@ -15,7 +15,7 @@ def generate_video(youtube_url, speaker_id, suno_tags, prompt_style, tts_voice, 
         "--prompt-style", prompt_style,
         "--voice", tts_voice,
         "--subtitle-style", subtitle_style,
-        "--video-filter", video_filter
+        "--visual-mode", visual_mode
     ]
 
     # Run the process and yield stdout line-by-line
@@ -51,7 +51,7 @@ def create_ui():
                 prompt_style = gr.Textbox(label="LLM Prompt Style", value="rhythmic spoken-word stanzas", info="Instructions for DeepSeek to format the transcript.")
                 tts_voice = gr.Dropdown(label="Kokoro TTS Voice", choices=["af_heart", "af_bella", "am_adam", "am_michael"], value="af_heart", info="Voice profile for synthesis.")
                 subtitle_style = gr.Textbox(label="Subtitle Style (FFmpeg force_style)", value="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", info="Stylize the burned-in SRT text.")
-                video_filter = gr.Textbox(label="Background Video Filter", value="mandelbrot=size=1920x1080:rate=30", info="FFmpeg generative background string.")
+                visual_mode = gr.Dropdown(label="Audio-Reactive Visual Mode", choices=["mandelbrot", "showwaves", "showcqt"], value="mandelbrot", info="FFmpeg dynamic rendering engine.")
 
         generate_btn = gr.Button("🚀 Generate Psychedelic Videos", variant="primary")
 
@@ -59,7 +59,7 @@ def create_ui():
 
         generate_btn.click(
             generate_video,
-            inputs=[youtube_url, speaker_id, suno_tags, prompt_style, tts_voice, subtitle_style, video_filter],
+            inputs=[youtube_url, speaker_id, suno_tags, prompt_style, tts_voice, subtitle_style, visual_mode],
             outputs=[log_console]
         )
 

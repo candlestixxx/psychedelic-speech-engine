@@ -20,7 +20,7 @@ def setup_argparse():
     parser.add_argument("--speaker", default="SPEAKER_01", help="Target speaker ID")
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
-    parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
+    parser.add_argument("--visual-mode", choices=["mandelbrot", "showwaves", "showcqt"], default="mandelbrot", help="Audio-reactive visual style")
     parser.add_argument("--voice", default="af_heart", help="Kokoro TTS voice ID")
     parser.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     parser.add_argument("--subtitle-style", default="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", help="FFmpeg force_style subtitle config")
@@ -145,28 +145,58 @@ def synthesize_audio(text, workspace_dir, voice_id):
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
 
-def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, subtitle_style):
-    print(f"Rendering final video to {output_file}...")
+def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style):
+    """Constructs the complex FFmpeg filter graph based on the visual mode."""
+    delay_ms = int(delay * 1000)
 
-    # Sanitize path for FFmpeg cross-platform compatibility (especially Windows backslashes)
+    # Audio pipeline: delay speech (input 1) and mix with music (input 2)
+    audio_mix = f"[1:a]adelay={delay_ms}|{delay_ms}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a_mixed]"
+
+    if visual_mode == "mandelbrot":
+        # Video pipeline: Input 0 is the generative lavfi mandelbrot, just burn subtitles
+        video_gen = f"[0:v]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
+    elif visual_mode == "showwaves":
+        # Video pipeline: Generate a black background (Input 0), map mixed audio into a visualizer, overlay, then burn subtitles
+        video_gen = f"[a_mixed]showwaves=s=1920x1080:mode=line:rate=30:colors=cyan|magenta[waves]; [0:v][waves]overlay=format=auto[v_bg]; [v_bg]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
+    elif visual_mode == "showcqt":
+        # Video pipeline: Generate a black background (Input 0), map mixed audio into a musical spectrograph, overlay, then burn subtitles
+        video_gen = f"[a_mixed]showcqt=s=1920x1080:fps=30:bar_g=2:sono_g=4:axis_h=0:tc=0[cqt]; [0:v][cqt]overlay=format=auto[v_bg]; [v_bg]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
+    else:
+        raise ValueError(f"Unknown visual mode: {visual_mode}")
+
+    return f"{audio_mix}; {video_gen}"
+
+def render_video(speech_file, music_file, srt_file, output_file, delay, visual_mode, subtitle_style):
+    print(f"Rendering final video to {output_file} (Mode: {visual_mode})...")
+
+    # Sanitize path for FFmpeg cross-platform compatibility
     safe_srt_file = srt_file.replace('\\', '/')
 
-    # Command to generate mandelbrot, add delayed speech and music, and burn subtitles
-    cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi", "-i", video_filter,
+    # Build the filter graph
+    filter_graph = build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style)
+
+    # Setup the base command
+    cmd = ["ffmpeg", "-y"]
+
+    # Base video input
+    if visual_mode == "mandelbrot":
+        cmd.extend(["-f", "lavfi", "-i", "mandelbrot=size=1920x1080:rate=30"])
+    else:
+        cmd.extend(["-f", "lavfi", "-i", "color=c=black:s=1920x1080:r=30"])
+
+    # Audio inputs and execution
+    cmd.extend([
         "-i", speech_file,
         "-i", music_file,
-        "-filter_complex",
-        f"[1:a]adelay={int(delay*1000)}|{int(delay*1000)}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; [0:v]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v]",
-        "-map", "[v]",
-        "-map", "[a]",
+        "-filter_complex", filter_graph,
+        "-map", "[v_out]",
+        "-map", "[a_mixed]",
         "-c:v", "libx264",
         "-preset", "fast",
         "-c:a", "aac",
         "-shortest",
         output_file
-    ]
+    ])
 
     subprocess.run(cmd, check=True)
     print("Rendering complete!")
@@ -193,7 +223,7 @@ def main():
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
         # Step 5: Render Video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.subtitle_style)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.visual_mode, args.subtitle_style)
 
     except Exception as e:
         print(f"Error during execution: {e}")

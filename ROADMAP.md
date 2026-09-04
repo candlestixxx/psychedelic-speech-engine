@@ -7,7 +7,6 @@
 - Fully isolate execution runtimes to prevent file collisions.
 
 ## Phase 2: Visual Enhancements
-- Expand FFmpeg filters to include audio-reactive shaders beyond Mandelbrot.
 - Dynamically detect BPM of Suno-generated tracks and adjust video pulse rates accordingly.
 
 ## Phase 3: GUI and Deployment

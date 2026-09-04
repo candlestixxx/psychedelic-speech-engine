@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.0] - 2024-05-28
+### Added
+- Implemented **Audio-Reactive Visuals**: Overhauled the rendering pipeline, replacing the static `--video-filter` argument with a dynamic `--visual-mode` architecture. Supports real-time music reactivity via `showwaves` and `showcqt` FFmpeg complex filters alongside the classic `mandelbrot` generator.
+- Updated `ui.py` with a Dropdown component to interactively select the new visual modes.
+
 ## [1.4.0] - 2024-05-28
 ### Added
 - Implemented **Docker Containerization**: Added a highly optimized `Dockerfile` integrating Python 3.10, `ffmpeg`, and `espeak-ng`.
