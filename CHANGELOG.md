@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.4.0] - 2024-05-28
+### Added
+- Implemented **Docker Containerization**: Added a highly optimized `Dockerfile` integrating Python 3.10, `ffmpeg`, and `espeak-ng`.
+- Implemented **Docker Compose Orchestration**: Added `docker-compose.yml` configured for native NVIDIA GPU passthrough (CUDA support) while supporting CPU-only fallback logic, binding the Gradio Web UI port for 1-click deployments.
+
 ## [1.3.0] - 2024-05-28
 ### Added
 - Implemented **Web GUI**: Created `ui.py` leveraging Gradio to expose all pipeline arguments (TTS voice, LLM prompt styles, Subtitle styles) via an interactive local web application.

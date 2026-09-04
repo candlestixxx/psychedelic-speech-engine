@@ -11,4 +11,3 @@
 - Dynamically detect BPM of Suno-generated tracks and adjust video pulse rates accordingly.
 
 ## Phase 3: GUI and Deployment
-- Containerize the entire engine via Docker for seamless 1-click deployments alongside the Suno API.

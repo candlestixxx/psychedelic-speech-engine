@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  psychedelic-engine:
+    build: .
+    container_name: psychedelic-speech-engine
+    ports:
+      - "7860:7860"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    # Optional: Enable GPU passthrough for CUDA acceleration if available
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    # Ensure the container has access to the host network so it can reach the local Suno Docker API on localhost:3000
+    network_mode: "host"
