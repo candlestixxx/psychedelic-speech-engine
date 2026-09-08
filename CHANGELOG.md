@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.0] - 2026-09-08
+### Added
+- **Audio-Reactive Visuals**: new `--visual-mode` architecture (`mandelbrot`, `showwaves`, `showcqt` FFmpeg complex filters) alongside the existing `--video-filter`.
+- **Web GUI**: Gradio `ui.py` exposing pipeline args (TTS voice, prompt style, subtitle style, visual mode).
+- **Docker Containerization**: `Dockerfile` (Python 3.10 + ffmpeg + espeak-ng) and `docker-compose.yml` with NVIDIA GPU passthrough and CPU-only fallback.
+
 ## [1.4.0] - 2026-09-01
 ### Added
 - **Male TTS voice by default** (`am_onyx`; `am_*` = male, `af_*` = female).

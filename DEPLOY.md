@@ -8,6 +8,18 @@
 - `espeak-ng` is **not** required — `espeakng-loader` bundles it automatically
   via kokoro/misaki.
 
+## Docker deployment (optional)
+
+Run the engine (Gradio Web UI) in Docker without installing Python deps:
+
+```bash
+docker-compose up -d --build
+```
+
+Then open http://localhost:7860. The compose file is pre-configured for
+NVIDIA GPU passthrough (falls back to CPU if no GPU is present). You can also
+launch the Web GUI natively with `python ui.py`.
+
 ## 1. Python environment
 
 ```bash

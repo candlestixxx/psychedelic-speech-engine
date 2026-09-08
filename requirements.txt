@@ -21,3 +21,6 @@ Pillow
 google-api-python-client
 google-auth
 google-auth-oauthlib
+
+# Web GUI (Gradio)
+gradio

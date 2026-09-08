@@ -7,9 +7,6 @@
 - Fully isolate execution runtimes to prevent file collisions.
 
 ## Phase 2: Visual Enhancements
-- Expand FFmpeg filters to include audio-reactive shaders beyond Mandelbrot.
 - Dynamically detect BPM of Suno-generated tracks and adjust video pulse rates accordingly.
 
 ## Phase 3: GUI and Deployment
-- Create a web-based user interface to configure API keys, video parameters, and view active rendering logs.
-- Containerize the entire engine via Docker for seamless 1-click deployments alongside the Suno API.

@@ -35,6 +35,7 @@ def setup_argparse():
     parser.add_argument("--delay", type=float, default=0.0, help="Delay for speech overlay (seconds)")
     parser.add_argument("--output", default="final_master.mp4", help="Output MP4 filename")
     parser.add_argument("--video-filter", default="mandelbrot=size=1920x1080:rate=30", help="FFmpeg video filter string")
+    parser.add_argument("--visual-mode", choices=["mandelbrot", "showwaves", "showcqt"], default="mandelbrot", help="Audio-reactive visual style (mandelbrot uses --video-filter; showwaves/showcqt are audio-reactive)")
     parser.add_argument("--voice", default="am_onyx", help="Kokoro TTS voice ID (am_* = male, af_* = female)")
     parser.add_argument("--prompt-style", default="rhythmic spoken-word stanzas", help="Thematic instruction for the DeepSeek LLM (e.g. 'Alan Watts philosophical')")
     parser.add_argument("--subtitle-style", default="FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,Bold=1", help="FFmpeg force_style subtitle config")
@@ -411,29 +412,63 @@ def _ffmpeg_subtitle_path(path):
     return p
 
 
-def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, subtitle_style):
-    print(f"[5/5] Rendering final video to {output_file}...")
+def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style):
+    """Constructs the complex FFmpeg filter graph for audio-reactive visual modes."""
+    delay_ms = int(delay * 1000)
 
+    # Audio pipeline: delay speech (input 1) and mix with music (input 2)
+    audio_mix = f"[1:a]adelay={delay_ms}|{delay_ms}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a_mixed]"
+
+    if visual_mode == "showwaves":
+        video_gen = f"[a_mixed]showwaves=s=1920x1080:mode=line:rate=30:colors=cyan|magenta[waves]; [0:v][waves]overlay=format=auto[v_bg]; [v_bg]subtitles='{safe_srt_file}':force_style='{subtitle_style}'[v_out]"
+    elif visual_mode == "showcqt":
+        video_gen = f"[a_mixed]showcqt=s=1920x1080:fps=30:bar_g=2:sono_g=4:axis_h=0:tc=0[cqt]; [0:v][cqt]overlay=format=auto[v_bg]; [v_bg]subtitles='{safe_srt_file}':force_style='{subtitle_style}'[v_out]"
+    else:
+        raise ValueError(f"Unknown visual mode: {visual_mode}")
+
+    return f"{audio_mix}; {video_gen}"
+
+
+def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, visual_mode, subtitle_style):
     delay_ms = int(delay * 1000)
     subtitles = _ffmpeg_subtitle_path(srt_file)
 
-    # mandelbrot is an infinite source; -shortest ends output when the (finite) audio ends.
-    cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi", "-i", video_filter,
-        "-i", speech_file,
-        "-i", music_file,
-        "-filter_complex",
-        f"[1:a]adelay={delay_ms}:all=1[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; "
-        f"[0:v]subtitles='{subtitles}':force_style='{subtitle_style}'[v]",
-        "-map", "[v]",
-        "-map", "[a]",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-c:a", "aac",
-        "-shortest",
-        output_file,
-    ]
+    if visual_mode == "mandelbrot":
+        print(f"[5/5] Rendering final video to {output_file}...")
+        # mandelbrot is an infinite source; -shortest ends output when the (finite) audio ends.
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", video_filter,
+            "-i", speech_file,
+            "-i", music_file,
+            "-filter_complex",
+            f"[1:a]adelay={delay_ms}:all=1[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a]; "
+            f"[0:v]subtitles='{subtitles}':force_style='{subtitle_style}'[v]",
+            "-map", "[v]",
+            "-map", "[a]",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-c:a", "aac",
+            "-shortest",
+            output_file,
+        ]
+    else:
+        print(f"[5/5] Rendering final video to {output_file} (Mode: {visual_mode})...")
+        filter_graph = build_ffmpeg_filter(visual_mode, delay, subtitles, subtitle_style)
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", "color=c=black:s=1920x1080:r=30",
+            "-i", speech_file,
+            "-i", music_file,
+            "-filter_complex", filter_graph,
+            "-map", "[v_out]",
+            "-map", "[a_mixed]",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-c:a", "aac",
+            "-shortest",
+            output_file,
+        ]
 
     subprocess.run(cmd, check=True)
     print("Rendering complete!")
@@ -461,7 +496,7 @@ def main():
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
         # Step 5: Render video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.subtitle_style)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.visual_mode, args.subtitle_style)
 
         print(f"Done! Final video: {args.output}")
 
