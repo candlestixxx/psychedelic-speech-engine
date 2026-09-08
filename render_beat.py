@@ -114,6 +114,34 @@ def _random_geo_source(size, fps, rng):
     return f"gradients=size={size}:rate={fps}:type={rng.choice(['radial', 'circular', 'spiral', 'square'])}:seed={seed}"
 
 
+def _mandelbrot_source(size, fps, rng, end_pts=None):
+    """Randomized Mandelbrot: a different region, zoom depth and colour scheme per video."""
+    anchors = [
+        (-0.743643887, -0.131825904),  # seahorse valley
+        (-0.75, 0.10),                 # spiral
+        (-0.16, 1.04),                 # elephant valley
+        (-0.1011, 0.9563),
+        (-0.7269, 0.1889),
+        (-0.8, 0.156),
+        (-0.6, 0.6),
+        (-1.0, 0.0),
+    ]
+    cx, cy = rng.choice(anchors)
+    cx += rng.uniform(-0.06, 0.06)
+    cy += rng.uniform(-0.06, 0.06)
+    start_scale = rng.uniform(1.5, 4.5)
+    end_scale = rng.uniform(0.03, 0.5)
+    maxiter = rng.randint(80, 400)
+    outer = rng.choice(["0x000000", "0x000020", "0x100030", "0x200040", "0x000030"])
+    inner = rng.choice(["0xFFFFFF", "0x00FFFF", "0xFF00FF", "0xFFFF00", "0x00FF00", "0xFF5500", "0x8800FF"])
+    s = (f"mandelbrot=size={size}:rate={fps}:start_x={cx:.10f}:start_y={cy:.10f}"
+         f":start_scale={start_scale:.4f}:end_scale={end_scale:.4f}:maxiter={maxiter}"
+         f":outer={outer}:inner={inner}")
+    if end_pts is not None:
+        s += f":end_pts={end_pts}"
+    return s
+
+
 def find_base_images(directory):
     """Return psychedelic base-art image paths in a directory.
 
@@ -150,6 +178,7 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
     subt = _escape_subtitles(srt_file)
     end_pts = int(dur * fps)
     w, h = (int(v) for v in size.split("x"))
+    rng = random.Random(base_seed)
 
     sub_filters = f"subtitles='{subt}'"
     if credit_name:
@@ -160,13 +189,11 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
 
     inputs = [
         "-f", "lavfi", "-i",
-        f"mandelbrot=size={size}:rate={fps}:start_scale=3.0:end_scale=0.4"
-        f":maxiter=200:end_pts={end_pts}",
+        _mandelbrot_source(size, fps, rng, end_pts),
     ]
     n_video = 1
     base_is_image = False
     if visual == "layered":
-        rng = random.Random(base_seed)
         imgs = [p for p in (base_images or []) if os.path.exists(p)]
         if imgs:
             pick = imgs[base_seed % len(imgs)] if base_seed is not None else rng.choice(imgs)
@@ -196,16 +223,16 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
                 f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=yuv420p,"
                 f"rotate=a='0.03*t':ow=iw:oh=ih,"
                 f"zoompan=z='{z_img}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
-                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.4,eq=brightness=0.7[base]"
+                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.8,eq=brightness=0.55:saturation=1.5[base]"
             )
         else:
             base_filter = (
-                f"[1:v]hue=h='6*t':s=1.6,gblur=sigma=10,zoompan=z='{z_slow}'"
-                f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=brightness=0.7[base]"
+                f"[1:v]hue=h='6*t':s=2.0,gblur=sigma=3,zoompan=z='{z_slow}'"
+                f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=brightness=0.55:saturation=1.6[base]"
             )
         geo_filter = (
-            f"[2:v]hue=h='-5*t':s=1.7,zoompan=z='{z_slow}'"
-            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=contrast=1.3:brightness=0.1[geo]"
+            f"[2:v]hue=h='-5*t':s=1.8,zoompan=z='{z_slow}'"
+            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=contrast=1.2:brightness=0.5:saturation=1.6[geo]"
         )
         fg_filter = (
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"

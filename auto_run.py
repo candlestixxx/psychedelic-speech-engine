@@ -232,7 +232,7 @@ def main():
                               channel_name=args.channel,
                               genre_label=f"{spec['genre']} {int(round(spec['bpm']))} BPM",
                               visual=args.visual, silhouette=sil, base_images=base_images,
-                              base_seed=idx)
+                              base_seed=random.randrange(2**31))
             print(f"        -> {out_name}")
             if args.upload:
                 import youtube_upload
