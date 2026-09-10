@@ -139,7 +139,8 @@ def extract_speech_once(url, speaker, start, end, workspace_dir, voice, prompt_s
 
 def main():
     p = argparse.ArgumentParser(description="Psychedelic Speech Engine - batch music video generator")
-    p.add_argument("--url", required=True, help="YouTube speech URL")
+    p.add_argument("--url", required=False, default=None, help="YouTube speech URL")
+    p.add_argument("--text-file", default=None, help="Path to a text file of quotes (one per line) to synthesize as the voice-over")
     p.add_argument("--speaker", default="auto", help="Target speaker ID (or 'auto' to pick whoever talks the most)")
     p.add_argument("--output", default="final_master", help="Output filename prefix (no extension)")
     p.add_argument("--count", type=int, default=4, help="Number of PSYTRANCE tracks")
@@ -186,9 +187,21 @@ def main():
     # Extract speech FIRST: the YouTube download is cookie-sensitive, so do it
     # immediately (before Suno's slow generation) to avoid cookie rotation.
     try:
-        line_items = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style, args.original_voice, args.fresh)
+        if args.text_file:
+            with open(args.text_file, encoding="utf-8") as f:
+                text = f.read()
+            print(f"[SPEECH] Synthesizing voice-over from text file ({len(text)} chars)")
+            line_items = engine.synthesize_lines(text, args.voice)
+        elif args.url:
+            line_items = extract_speech_once(args.url, args.speaker, args.start, args.end, workspace_dir, args.voice, args.prompt_style, args.original_voice, args.fresh)
+        else:
+            print("Provide either --url or --text-file")
+            sys.exit(1)
     except Exception as e:
         print(f"Speech extraction failed: {e}")
+        sys.exit(1)
+    if not line_items:
+        print("No speech lines produced. Aborting.")
         sys.exit(1)
 
     sil = None  # silhouette ghost disabled (art already contains the speaker)
