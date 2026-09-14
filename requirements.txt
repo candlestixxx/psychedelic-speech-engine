@@ -6,3 +6,4 @@ kokoro
 soundfile
 numpy
 gradio
+librosa

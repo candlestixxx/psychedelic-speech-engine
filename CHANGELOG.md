@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.0] - 2024-05-28
+### Added
+- Implemented **Dynamic BPM Detection**: Integrated `librosa` into `app.py` to calculate the exact BPM of downloaded Suno tracks.
+- Updated `build_ffmpeg_filter` to use the dynamically extracted BPM to mathematically lock the `draw_rate` (visual pulse speed) of the `showwaves` and `showcqt` audio-reactive shaders to the music's tempo.
+
 ## [1.5.0] - 2024-05-28
 ### Added
 - Implemented **Audio-Reactive Visuals**: Overhauled the rendering pipeline, replacing the static `--video-filter` argument with a dynamic `--visual-mode` architecture. Supports real-time music reactivity via `showwaves` and `showcqt` FFmpeg complex filters alongside the classic `mandelbrot` generator.

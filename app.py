@@ -121,6 +121,23 @@ def polish_script(raw_text, prompt_style):
             else:
                 raise ValueError("DeepSeek API failed after maximum retries.")
 
+def detect_bpm(music_file):
+    print(f"Detecting BPM for {music_file}...")
+    import librosa
+
+    # Load the audio and extract tempo
+    y, sr = librosa.load(music_file)
+    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+
+    # Extract scalar if librosa returns an array (depends on librosa version)
+    try:
+        bpm = float(tempo[0])
+    except (TypeError, IndexError):
+        bpm = float(tempo)
+
+    print(f"Detected BPM: {bpm:.2f}")
+    return bpm
+
 def synthesize_audio(text, workspace_dir, voice_id):
     print(f"Synthesizing audio with Kokoro (Voice: {voice_id})...")
     from kokoro import KPipeline
@@ -145,9 +162,13 @@ def synthesize_audio(text, workspace_dir, voice_id):
     sf.write(output_speech_wav, final_audio, 24000)
     return output_speech_wav
 
-def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style):
-    """Constructs the complex FFmpeg filter graph based on the visual mode."""
+def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style, bpm):
+    """Constructs the complex FFmpeg filter graph based on the visual mode and track BPM."""
     delay_ms = int(delay * 1000)
+
+    # Calculate pulse rate based on BPM. If BPM is 145, there are 145/60 beats per second.
+    # We map this to a drawing frequency metric in FFmpeg.
+    draw_rate = max(15, min(60, int((bpm / 60) * 10)))
 
     # Audio pipeline: delay speech (input 1) and mix with music (input 2)
     audio_mix = f"[1:a]adelay={delay_ms}|{delay_ms}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a_mixed]"
@@ -156,24 +177,24 @@ def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style):
         # Video pipeline: Input 0 is the generative lavfi mandelbrot, just burn subtitles
         video_gen = f"[0:v]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
     elif visual_mode == "showwaves":
-        # Video pipeline: Generate a black background (Input 0), map mixed audio into a visualizer, overlay, then burn subtitles
-        video_gen = f"[a_mixed]showwaves=s=1920x1080:mode=line:rate=30:colors=cyan|magenta[waves]; [0:v][waves]overlay=format=auto[v_bg]; [v_bg]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
+        # Video pipeline: Generate a black background (Input 0), map mixed audio into a visualizer synced to draw_rate, overlay, burn subtitles
+        video_gen = f"[a_mixed]showwaves=s=1920x1080:mode=line:rate={draw_rate}:colors=cyan|magenta[waves]; [0:v][waves]overlay=format=auto[v_bg]; [v_bg]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
     elif visual_mode == "showcqt":
-        # Video pipeline: Generate a black background (Input 0), map mixed audio into a musical spectrograph, overlay, then burn subtitles
-        video_gen = f"[a_mixed]showcqt=s=1920x1080:fps=30:bar_g=2:sono_g=4:axis_h=0:tc=0[cqt]; [0:v][cqt]overlay=format=auto[v_bg]; [v_bg]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
+        # Video pipeline: Generate a black background (Input 0), map mixed audio into a musical spectrograph synced to draw_rate, overlay, burn subtitles
+        video_gen = f"[a_mixed]showcqt=s=1920x1080:fps={draw_rate}:bar_g=2:sono_g=4:axis_h=0:tc=0[cqt]; [0:v][cqt]overlay=format=auto[v_bg]; [v_bg]subtitles={safe_srt_file}:force_style='{subtitle_style}'[v_out]"
     else:
         raise ValueError(f"Unknown visual mode: {visual_mode}")
 
     return f"{audio_mix}; {video_gen}"
 
-def render_video(speech_file, music_file, srt_file, output_file, delay, visual_mode, subtitle_style):
-    print(f"Rendering final video to {output_file} (Mode: {visual_mode})...")
+def render_video(speech_file, music_file, srt_file, output_file, delay, visual_mode, subtitle_style, bpm):
+    print(f"Rendering final video to {output_file} (Mode: {visual_mode}, BPM: {bpm:.2f})...")
 
     # Sanitize path for FFmpeg cross-platform compatibility
     safe_srt_file = srt_file.replace('\\', '/')
 
-    # Build the filter graph
-    filter_graph = build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style)
+    # Build the filter graph passing the detected BPM
+    filter_graph = build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style, bpm)
 
     # Setup the base command
     cmd = ["ffmpeg", "-y"]
@@ -222,8 +243,11 @@ def main():
         # Step 4: Synthesize TTS
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
+        # Detect BPM of the backing track
+        bpm = detect_bpm(args.music)
+
         # Step 5: Render Video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.visual_mode, args.subtitle_style)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.visual_mode, args.subtitle_style, bpm)
 
     except Exception as e:
         print(f"Error during execution: {e}")
