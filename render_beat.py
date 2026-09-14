@@ -81,7 +81,7 @@ Dialogue: 0, 0:00:09.00, {end}, Credit, , 0, 0, 0, , {lower}
 def _random_base_source(size, fps, rng):
     """Return a lavfi source string for a randomized trippy background layer."""
     seed = rng.randint(0, 2 ** 31)
-    kind = rng.randrange(7)
+    kind = rng.randrange(8)
     if kind in (0, 1):
         rule = rng.choice([110, 30, 45, 73, 90, 150, 184])
         return f"cellauto=size={size}:rate={fps}:rule={rule}:seed={seed}"
@@ -90,14 +90,11 @@ def _random_base_source(size, fps, rng):
         return f"gradients=size={size}:rate={fps}:type={gtype}:seed={seed}"
     if kind == 3:
         return f"sierpinski=size={size}:rate={fps}:type=1:jump={rng.choice([1, 2, 5])}:seed={seed}"
-    if kind == 4:
-        color = rng.choice(["0xFF00FF", "0x00FFFF", "0x00FF00", "0xFF0000", "0xFFFF00"])
-        return f"life=size={size}:rate={fps}:ratio=0.06:seed={seed}:life_color={color}:death_color=0x000000"
-    if kind == 5:
-        # flowing psychedelic plasma (animated via time T)
-        return (f"nullsrc=size={size}:rate={fps},"
-                f"geq=r='128+127*sin(X/40+T*2)':g='128+127*sin(Y/40-T*3)':b='128+127*sin((X+Y)/50+T*2)'")
-    return f"mandelbrot=size={size}:rate={fps}:start_scale=2.5:end_scale=0.15:maxiter=150"
+    # kinds 4..7: MilkDrop-like flowing plasma (dominant), animated via time T
+    return (f"nullsrc=size={size}:rate={fps},"
+            f"geq=r='128+127*sin(X/{rng.randint(24, 40)}+T*{rng.uniform(1.8, 2.8)})*cos(Y/{rng.randint(36, 60)}-T*{rng.uniform(1.2, 2.0)})'"
+            f":g='128+127*sin(Y/{rng.randint(20, 34)}-T*{rng.uniform(2.2, 3.2)})*sin((X+Y)/{rng.randint(48, 80)}+T*{rng.uniform(0.9, 1.6)})'"
+            f":b='128+127*cos((X-Y)/{rng.randint(32, 52)}+T*{rng.uniform(1.6, 2.6)})*sin(X/{rng.randint(40, 70)}+T*{rng.uniform(0.8, 1.4)})'")
 
 
 def _random_geo_source(size, fps, rng):
@@ -216,33 +213,42 @@ def render_beat_video(speech_wav, music_file, srt_file, output, bpm,
     # Build the visual composite, ending in a single labelled stream "VIS".
     vf_parts = []
     if visual == "layered":
-        z_slow = f"(1+0.35*on/{end_pts})*(1+0.05*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
-        z_img = f"(1+0.4*on/{end_pts})*(1+0.05*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
+        # Three DISTINCT stacked layers, each with its own beat-synced movement:
+        #  base (MilkDrop plasma / art) -> kaleidoscope geometric -> Mandelbrot on top
+        z_slow = f"(1+0.35*on/{end_pts})"
+        z_base = f"(1+0.35*on/{end_pts})*(1+0.06*pow(max(0,sin(2*PI*on/{period:.4f})),6))"
+        z_img = f"(1+0.4*on/{end_pts})*(1+0.06*pow(max(0,sin(2*PI*on/{period:.4f})),6))"
+        z_geo = f"(1+0.4*on/{end_pts})*(1+0.08*pow(max(0,cos(2*PI*on/{period:.4f})),8))"
         if base_is_image:
             base_filter = (
                 f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},format=yuv420p,"
-                f"rotate=a='0.03*t':ow=iw:oh=ih,"
+                f"rotate=a='0.04*t':ow=iw:oh=ih,"
                 f"zoompan=z='{z_img}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
-                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.8,eq=brightness=0.55:saturation=1.5[base]"
+                f":d=1:s={size}:fps={fps},hue=h='6*t':s=1.9,eq=brightness=0.6:saturation=1.6[base]"
             )
         else:
             base_filter = (
-                f"[1:v]hue=h='6*t':s=2.0,gblur=sigma=3,zoompan=z='{z_slow}'"
-                f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=brightness=0.55:saturation=1.6[base]"
+                f"[1:v]hue=h='6*t':s=2.1,rotate=a='0.04*t':ow=iw:oh=ih,"
+                f"zoompan=z='{z_base}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
+                f":d=1:s={size}:fps={fps},eq=brightness=0.6:saturation=1.8[base]"
             )
         geo_filter = (
-            f"[2:v]hue=h='-5*t':s=1.8,zoompan=z='{z_slow}'"
-            f":x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=1:s={size}:fps={fps},eq=contrast=1.2:brightness=0.5:saturation=1.6[geo]"
+            f"[2:v]split=2[ga][gb];"
+            f"[ga]crop=iw/2:ih:0:0[gl];"
+            f"[gb]crop=iw/2:ih:0:0,hflip[gr];"
+            f"[gl][gr]hstack,hue=h='-5*t':s=1.9,"
+            f"zoompan=z='{z_geo}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
+            f":d=1:s={size}:fps={fps},eq=contrast=1.3:brightness=0.4:saturation=1.7,format=rgba,colorchannelmixer=aa=0.55[geo]"
         )
         fg_filter = (
             f"[0:v]zoompan=z='{zexpr}':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2'"
-            f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.5,eq=contrast=1.4:saturation=1.6:brightness=0.05[fg]"
+            f":d=1:s={size}:fps={fps},hue=h='-4*t':s=1.5,eq=contrast=1.4:saturation=1.6:brightness=0.05,format=rgba,colorchannelmixer=aa=0.6[fg]"
         )
         vf_parts += [
             fg_filter,
             base_filter,
             geo_filter,
-            f"[base][geo]blend=all_mode=screen,format=yuv420p[bg2]",
+            f"[base][geo]overlay=0:0[bg2]",
             f"[bg2][fg]blend=all_mode=screen,format=yuv420p,eq=brightness='1+0.2*pow(max(0,cos(2*PI*n/{period:.4f})),6)':saturation=1.2[VIS]",
         ]
     else:
