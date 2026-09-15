@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.0] - 2026-09-14
+### Added
+- **BPM-synced shaders**: `detect_bpm()` (librosa) drives the draw rate of `showwaves`/`showcqt` so visualizers pulse to the music tempo.
+- `librosa` added to `requirements.txt` (separated from Gradio).
+
 ## [1.5.0] - 2026-09-08
 ### Added
 - **Audio-Reactive Visuals**: new `--visual-mode` architecture (`mandelbrot`, `showwaves`, `showcqt` FFmpeg complex filters) alongside the existing `--video-filter`.

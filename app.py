@@ -412,24 +412,45 @@ def _ffmpeg_subtitle_path(path):
     return p
 
 
-def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style):
+def detect_bpm(music_file):
+    print(f"Detecting BPM for {music_file}...")
+    import librosa
+
+    # Load the audio and extract tempo
+    y, sr = librosa.load(music_file)
+    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+
+    # Extract scalar if librosa returns an array (depends on librosa version)
+    try:
+        bpm = float(tempo[0])
+    except (TypeError, IndexError):
+        bpm = float(tempo)
+
+    print(f"Detected BPM: {bpm:.2f}")
+    return bpm
+
+
+def build_ffmpeg_filter(visual_mode, delay, safe_srt_file, subtitle_style, bpm):
     """Constructs the complex FFmpeg filter graph for audio-reactive visual modes."""
     delay_ms = int(delay * 1000)
+
+    # Calculate pulse rate based on BPM. Map to an FFmpeg draw-rate metric.
+    draw_rate = max(15, min(60, int((bpm / 60) * 10)))
 
     # Audio pipeline: delay speech (input 1) and mix with music (input 2)
     audio_mix = f"[1:a]adelay={delay_ms}|{delay_ms}[speech]; [speech][2:a]amix=inputs=2:duration=shortest[a_mixed]"
 
     if visual_mode == "showwaves":
-        video_gen = f"[a_mixed]showwaves=s=1920x1080:mode=line:rate=30:colors=cyan|magenta[waves]; [0:v][waves]overlay=format=auto[v_bg]; [v_bg]subtitles='{safe_srt_file}':force_style='{subtitle_style}'[v_out]"
+        video_gen = f"[a_mixed]showwaves=s=1920x1080:mode=line:rate={draw_rate}:colors=cyan|magenta[waves]; [0:v][waves]overlay=format=auto[v_bg]; [v_bg]subtitles='{safe_srt_file}':force_style='{subtitle_style}'[v_out]"
     elif visual_mode == "showcqt":
-        video_gen = f"[a_mixed]showcqt=s=1920x1080:fps=30:bar_g=2:sono_g=4:axis_h=0:tc=0[cqt]; [0:v][cqt]overlay=format=auto[v_bg]; [v_bg]subtitles='{safe_srt_file}':force_style='{subtitle_style}'[v_out]"
+        video_gen = f"[a_mixed]showcqt=s=1920x1080:fps={draw_rate}:bar_g=2:sono_g=4:axis_h=0:tc=0[cqt]; [0:v][cqt]overlay=format=auto[v_bg]; [v_bg]subtitles='{safe_srt_file}':force_style='{subtitle_style}'[v_out]"
     else:
         raise ValueError(f"Unknown visual mode: {visual_mode}")
 
     return f"{audio_mix}; {video_gen}"
 
 
-def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, visual_mode, subtitle_style):
+def render_video(speech_file, music_file, srt_file, output_file, delay, video_filter, visual_mode, subtitle_style, bpm):
     delay_ms = int(delay * 1000)
     subtitles = _ffmpeg_subtitle_path(srt_file)
 
@@ -453,8 +474,8 @@ def render_video(speech_file, music_file, srt_file, output_file, delay, video_fi
             output_file,
         ]
     else:
-        print(f"[5/5] Rendering final video to {output_file} (Mode: {visual_mode})...")
-        filter_graph = build_ffmpeg_filter(visual_mode, delay, subtitles, subtitle_style)
+        print(f"[5/5] Rendering final video to {output_file} (Mode: {visual_mode}, BPM: {bpm:.2f})...")
+        filter_graph = build_ffmpeg_filter(visual_mode, delay, subtitles, subtitle_style, bpm)
         cmd = [
             "ffmpeg", "-y",
             "-f", "lavfi", "-i", "color=c=black:s=1920x1080:r=30",
@@ -495,8 +516,11 @@ def main():
         # Step 4: Synthesize TTS
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)
 
+        # Detect BPM of the backing track
+        bpm = detect_bpm(args.music)
+
         # Step 5: Render video
-        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.visual_mode, args.subtitle_style)
+        render_video(synthesized_speech, args.music, srt_file, args.output, args.delay, args.video_filter, args.visual_mode, args.subtitle_style, bpm)
 
         print(f"Done! Final video: {args.output}")
 
