@@ -26,3 +26,5 @@ assets/
 youtube_token.json
 smoke.log
 speech_cache/
+*.m4a
+*.webm
