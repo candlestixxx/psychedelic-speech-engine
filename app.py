@@ -61,8 +61,14 @@ def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
     result = whisperx.assign_word_speakers(diarize_segments, result)
 
     srt_content = ""
-    raw_text = ""
+    chunks = []
+    current_chunk = ""
     idx = 1
+
+    # Segment the text into rough chunks of ~150 words to avoid LLM context exhaustion
+    word_limit = 150
+    current_word_count = 0
+
     for segment in result["segments"]:
         if segment.get("speaker") == target_speaker:
             start = format_timestamp(segment["start"])
@@ -70,14 +76,25 @@ def extract_speech_and_srt(audio_file, target_speaker, workspace_dir):
             text = segment["text"].strip()
 
             srt_content += f"{idx}\n{start} --> {end}\n{text}\n\n"
-            raw_text += text + " "
             idx += 1
+
+            words_in_segment = len(text.split())
+            if current_word_count + words_in_segment > word_limit:
+                chunks.append(current_chunk.strip())
+                current_chunk = text + " "
+                current_word_count = words_in_segment
+            else:
+                current_chunk += text + " "
+                current_word_count += words_in_segment
+
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
 
     srt_filename = os.path.join(workspace_dir, "isolated_speech.srt")
     with open(srt_filename, "w", encoding="utf-8") as f:
         f.write(srt_content)
 
-    return srt_filename, raw_text
+    return srt_filename, chunks
 
 def format_timestamp(seconds):
     hours = int(seconds // 3600)
@@ -85,8 +102,8 @@ def format_timestamp(seconds):
     secs = seconds % 60
     return f"{hours:02d}:{minutes:02d}:{secs:06.3f}".replace(".", ",")
 
-def polish_script(raw_text, prompt_style):
-    print(f"Polishing script with DeepSeek (Style: {prompt_style})...")
+def polish_script(chunks, prompt_style):
+    print(f"Polishing {len(chunks)} chunks with DeepSeek (Style: {prompt_style})...")
     deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
     if not deepseek_key:
         raise ValueError("DEEPSEEK_API_KEY environment variable is missing.")
@@ -97,29 +114,42 @@ def polish_script(raw_text, prompt_style):
         "Content-Type": "application/json"
     }
 
-    prompt = f"Clean the following transcript, remove filler words, and format the speech into {prompt_style}. Output ONLY the polished text:\n\n{raw_text}"
+    polished_script = ""
 
-    payload = {
-        "model": "deepseek-v4-flash",
-        "messages": [
-            {"role": "system", "content": "You are a poetic assistant."},
-            {"role": "user", "content": prompt}
-        ]
-    }
+    for i, chunk in enumerate(chunks):
+        print(f"  -> Processing chunk {i+1}/{len(chunks)}...")
+        prompt = f"Clean the following transcript, remove filler words, and format the speech into {prompt_style}. Output ONLY the polished text:\n\n{chunk}"
 
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(url, json=payload, headers=headers, timeout=60)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
-        except requests.exceptions.RequestException as e:
-            print(f"DeepSeek API error on attempt {attempt + 1}: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
-            else:
-                raise ValueError("DeepSeek API failed after maximum retries.")
+        payload = {
+            "model": "deepseek-v4-flash",
+            "messages": [
+                {"role": "system", "content": "You are a poetic assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        }
+
+        max_retries = 3
+        chunk_success = False
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=60)
+                response.raise_for_status()
+                data = response.json()
+                polished_chunk = data["choices"][0]["message"]["content"]
+                polished_script += polished_chunk + "\n\n"
+                chunk_success = True
+                break
+            except requests.exceptions.RequestException as e:
+                print(f"     [!] DeepSeek API error on chunk {i+1}, attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                else:
+                    raise ValueError(f"DeepSeek API failed after maximum retries on chunk {i+1}.")
+
+        if not chunk_success:
+             raise ValueError(f"Failed to process chunk {i+1}.")
+
+    return polished_script.strip()
 
 def detect_bpm(music_file):
     print(f"Detecting BPM for {music_file}...")
@@ -235,10 +265,10 @@ def main():
         audio_wav = download_audio(args.url, workspace_dir)
 
         # Step 2: Diarize and Transcribe
-        srt_file, raw_text = extract_speech_and_srt(audio_wav, args.speaker, workspace_dir)
+        srt_file, text_chunks = extract_speech_and_srt(audio_wav, args.speaker, workspace_dir)
 
         # Step 3: Polish Script via DeepSeek
-        polished_text = polish_script(raw_text, args.prompt_style)
+        polished_text = polish_script(text_chunks, args.prompt_style)
 
         # Step 4: Synthesize TTS
         synthesized_speech = synthesize_audio(polished_text, workspace_dir, args.voice)

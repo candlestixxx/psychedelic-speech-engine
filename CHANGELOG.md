@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.7.0] - 2024-05-28
+### Added
+- Implemented **Topic Clustering & LLM Segmentation Engine**: `app.py` now mathematically segments the raw transcript into ~150-word chunks before querying the DeepSeek API. This guarantees DeepSeek never hits its context limit on massive interview videos and generates much more narratively coherent, rhythmic musical stanzas sequentially.
+
 ## [1.6.0] - 2024-05-28
 ### Added
 - Implemented **Dynamic BPM Detection**: Integrated `librosa` into `app.py` to calculate the exact BPM of downloaded Suno tracks.
